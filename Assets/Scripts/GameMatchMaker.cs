@@ -37,6 +37,8 @@ public class GameMatchMaker : NetworkBehaviour
     {
         Application.runInBackground = true;
         NetManager.singleton.StartMatchMaker();
+        canvasConnect.enabled = true;
+        canvasPlay.enabled = false;
         startButton.onClick.AddListener(delegate() {
             CreateInternetMatch("ninjaprototype");
             canvasConnect.enabled = false;

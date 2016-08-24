@@ -299,7 +299,7 @@ public class GameNetwork : NetworkBehaviour {
         else
         {
             FixedNotifyController fixedNotify = GameObject.Instantiate(fixedNotifyPrefab).GetComponent<FixedNotifyController>();
-            fixedNotify.transform.parent = gameMatchMaker.canvasPlay.transform;
+            fixedNotify.text.rectTransform.SetParent(gameMatchMaker.canvasPlay.transform);
             if ((isServer && target == 0) || (!isServer && target == 1))
             {
                 fixedNotify.Show(0, message, color, offset);
@@ -320,16 +320,35 @@ public class GameNetwork : NetworkBehaviour {
             if(playerObject.abilityShield == 0.0f)
             {
                 playerObject.abilityShield = 10.0f;
-                ShowNotice(playerObject.id, "ЩИТ", 5.0f, 0, false);
-                RpcShowNotice(playerObject.id, "ЩИТ", 5.0f, 0, false);
+                ShowNotice(playerObject.id, "+ ЩИТ", 5.0f, 0, false);
+                RpcShowNotice(playerObject.id, "+ ЩИТ", 5.0f, 0, false);
             }
             else if(playerObject.abilityStun == 0.0f)
             {
                 playerObject.abilityStun = 10.0f;
                 playerObject.stunMove = 5.0f;
-                ShowNotice(playerObject.id, "ОГЛУШЕНИЕ", 3.0f, 0, false);
-                RpcShowNotice(playerObject.id, "ОГЛУШЕНИЕ", 3.0f, 0, false);
+                ShowNotice(playerObject.id, "+ ОГЛУШЕНИЕ", 3.0f, 0, false);
+                RpcShowNotice(playerObject.id, "+ ОГЛУШЕНИЕ", 3.0f, 0, false);
             }
+        }
+    }
+
+    [ClientRpc]
+    public void RpcFlashPassiveAbility(int id)
+    {
+        if (!isServer)
+        {
+            FlashPassiveAbility(id);
+        }
+    }
+
+    public void FlashPassiveAbility(int id)
+    {
+        PlayerObject playerObject = null;
+        playerObject = (PlayerObject)location.GetObject(id);
+        if (playerObject != null)
+        {
+            abilityPassiveButton.Activate(5.0f);
         }
     }
 
@@ -401,7 +420,7 @@ public class GameNetwork : NetworkBehaviour {
     {
         SendSimpleMessage(ClientEvent.CONNECTED);
         abilityActiveButton.button.onClick.AddListener(delegate() {
-            if (abilityActiveButton.Activate())
+            if (abilityActiveButton.Activate(10.0f))
             {
                 SendSimpleMessage(ClientEvent.USE_ABILITY);
             }
@@ -417,7 +436,7 @@ public class GameNetwork : NetworkBehaviour {
         NetworkServer.RegisterHandler(102, ReceiveClientFloatMessage);
         NetworkServer.RegisterHandler(103, ReceiveClientDoubleFloatMessage);
         abilityActiveButton.button.onClick.AddListener(delegate () {
-            if (abilityActiveButton.Activate())
+            if (abilityActiveButton.Activate(10.0f))
             {
                 UseAbility(0);
             }
@@ -529,7 +548,7 @@ public class GameNetwork : NetworkBehaviour {
         float mouseY = 1.0f - Input.mousePosition.y / (float)Screen.height;
         float touchX = 0.0f;
         float touchY = 0.0f;
-#if true
+#if !UNITY_STANDALONE
         Touch touch;
         if (Input.touchCount > 0)
         {
@@ -736,15 +755,15 @@ public class GameNetwork : NetworkBehaviour {
             obstructionController = (Instantiate(obstructionPrefabs[visualId])).GetComponent<ObstructionController>();
             obstructionController.gameNetwork = this;
             obstructionObject = new ObstructionObject();
-            obstructionObject.position = new Vector3(((float)(i - 2)) * 0.66f + UnityEngine.Random.Range(0.05f, 0.6f), UnityEngine.Random.Range(-0.2f, 0.0f), 0.5f);
+            obstructionObject.position = new Vector3(((float)(i - 2)) * 0.66f + UnityEngine.Random.Range(0.05f, 0.6f), UnityEngine.Random.Range(-0.22f, 0.0f), 0.5f);
             switch(visualId)
             {
                 case 0:
-                    obstructionObject.scale = 0.1f;
+                    obstructionObject.scale = 0.12f;
                     obstructionObject.durability = 30.0f;
                     break;
                 case 1:
-                    obstructionObject.scale = 0.02f;
+                    obstructionObject.scale = 0.04f;
                     obstructionObject.durability = 50.0f;
                     break;
                 case 2:
@@ -752,7 +771,7 @@ public class GameNetwork : NetworkBehaviour {
                     obstructionObject.durability = 10.0f;
                     break;
                 case 3:
-                    obstructionObject.scale = 0.05f;
+                    obstructionObject.scale = 0.09f;
                     obstructionObject.durability = 20.0f;
                     break;
             }
@@ -1256,13 +1275,21 @@ public class Location
                                                 hit = true;
                                                 attackerObject = (PlayerObject)objects.First.Next.Value;
                                             }
-                                            if (playerObject.abilityEvade == 0.0f && UnityEngine.Random.Range(0.0f, 1.0f) < 0.2f)
+                                            if (hit && playerObject.abilityEvade == 0.0f && UnityEngine.Random.Range(0.0f, 1.0f) < 0.2f)
                                             {
                                                 hit = false;
                                                 playerObject.abilityEvade = 5.0f;
-                                                network.RpcShowNotice(playerObject.id, "УКЛОНЕНИЕ", noticeOffset, 0, true);
-                                                network.ShowNotice(playerObject.id, "УКЛОНЕНИЕ", noticeOffset, 0, true);
+                                                network.RpcShowNotice(playerObject.id, "+ УКЛОНЕНИЕ", noticeOffset, 0, true);
+                                                network.ShowNotice(playerObject.id, "+ УКЛОНЕНИЕ", noticeOffset, 0, true);
                                                 noticeOffset += 1.0f;
+                                                if(playerObject.id == 0)
+                                                {
+                                                    network.FlashPassiveAbility(playerObject.id);
+                                                }
+                                                else
+                                                {
+                                                    network.RpcFlashPassiveAbility(playerObject.id);
+                                                }
                                                 // Ability Evade
                                             }
                                             if (hit)
@@ -1276,6 +1303,14 @@ public class Location
                                                 {
                                                     attackerObject.abilityCrit = 5.0f;
                                                     critChance += 0.15f;
+                                                    if (attackerObject.id == 0)
+                                                    {
+                                                        network.FlashPassiveAbility(attackerObject.id);
+                                                    }
+                                                    else
+                                                    {
+                                                        network.RpcFlashPassiveAbility(attackerObject.id);
+                                                    }
                                                     // Ability Crit
                                                 }
                                                 if (UnityEngine.Random.Range(0.0f, 1.0f) < critChance)
@@ -1287,23 +1322,31 @@ public class Location
                                                 {
                                                     notifyMessage += "Щ";
                                                     damage *= 0.5f;
-                                                    network.RpcShowNotice(playerObject.id, "ЩИТ", noticeOffset, 0, true);
-                                                    network.ShowNotice(playerObject.id, "ЩИТ", noticeOffset, 0, true);
+                                                    network.RpcShowNotice(playerObject.id, "+ ЩИТ", noticeOffset, 0, true);
+                                                    network.ShowNotice(playerObject.id, "+ ЩИТ", noticeOffset, 0, true);
                                                     noticeOffset += 1.0f;
                                                 }
                                                 notifyMessage += " -" + Mathf.Floor(damage);
-                                                network.RpcShowNotice(playerObject.id, notifyMessage, noticeOffset, 1, true);
-                                                network.ShowNotice(playerObject.id, notifyMessage, noticeOffset, 1, true);
+                                                if (playerObject.id == 0)
+                                                {
+                                                    network.RpcShowNotice(playerObject.id, notifyMessage, noticeOffset, 1, true);
+                                                    network.ShowNotice(playerObject.id, notifyMessage, 1.0f, 1, false);
+                                                }
+                                                else
+                                                {
+                                                    network.RpcShowNotice(playerObject.id, notifyMessage, 1.0f, 1, false);
+                                                    network.ShowNotice(playerObject.id, notifyMessage, noticeOffset, 1, true);
+                                                }
                                                 noticeOffset += 1.0f;
                                                 playerObject.health -= damage;
                                                 if(attackerObject.stunMove > 0.0f)
                                                 {
                                                     attackerObject.stunMove = 0.0f;
                                                     playerObject.stun += 5.0f;
-                                                    network.RpcShowNotice(playerObject.id, "ОГЛУШЕН", noticeOffset, 1, true);
-                                                    network.ShowNotice(playerObject.id, "ОГЛУШЕН", noticeOffset, 1, true);
-                                                    network.RpcShowNotice(playerObject.id, "ОГЛУШЕН", 5.0f, 1, false);
-                                                    network.ShowNotice(playerObject.id, "ОГЛУШЕН", 5.0f, 1, false);
+                                                    network.RpcShowNotice(playerObject.id, "- ОГЛУШЕН", noticeOffset, 1, true);
+                                                    network.ShowNotice(playerObject.id, "- ОГЛУШЕН", noticeOffset, 1, true);
+                                                    network.RpcShowNotice(playerObject.id, "- ОГЛУШЕН", 5.0f, 1, false);
+                                                    network.ShowNotice(playerObject.id, "- ОГЛУШЕН", 5.0f, 1, false);
                                                     noticeOffset += 1.0f;
                                                 }
                                                 if (UnityEngine.Random.Range(0.0f, 1.0f) < attackerObject.injuryChance)
@@ -1312,20 +1355,20 @@ public class Location
                                                     {
                                                         // Injury Arm
                                                         playerObject.armInjury = 8.0f;
-                                                        network.RpcShowNotice(playerObject.id, "РУКА", noticeOffset, 1, true);
-                                                        network.ShowNotice(playerObject.id, "РУКА", noticeOffset, 1, true);
-                                                        network.RpcShowNotice(playerObject.id, "РУКА", 8.0f, 1, false);
-                                                        network.ShowNotice(playerObject.id, "РУКА", 8.0f, 1, false);
+                                                        network.RpcShowNotice(playerObject.id, "- РУКА", noticeOffset, 1, true);
+                                                        network.ShowNotice(playerObject.id, "- РУКА", noticeOffset, 1, true);
+                                                        network.RpcShowNotice(playerObject.id, "- РУКА", 8.0f, 1, false);
+                                                        network.ShowNotice(playerObject.id, "- РУКА", 8.0f, 1, false);
                                                         noticeOffset += 1.0f;
                                                     }
                                                     else
                                                     {
                                                         // Injury Leg
                                                         playerObject.legInjury = 8.0f;
-                                                        network.RpcShowNotice(playerObject.id, "НОГА", noticeOffset, 1, true);
-                                                        network.ShowNotice(playerObject.id, "НОГА", noticeOffset, 1, true);
-                                                        network.RpcShowNotice(playerObject.id, "НОГА", 8.0f, 1, false);
-                                                        network.ShowNotice(playerObject.id, "НОГА", 8.0f, 1, false);
+                                                        network.RpcShowNotice(playerObject.id, "- НОГА", noticeOffset, 1, true);
+                                                        network.ShowNotice(playerObject.id, "- НОГА", noticeOffset, 1, true);
+                                                        network.RpcShowNotice(playerObject.id, "- НОГА", 8.0f, 1, false);
+                                                        network.ShowNotice(playerObject.id, "- НОГА", 8.0f, 1, false);
                                                         noticeOffset += 1.0f;
                                                     }
                                                 }
@@ -1481,7 +1524,7 @@ public class PlayerObject : LocationObject
     public float direction = 0.0f;
     public float strafeSpeed = 0.0f;
     public float strafeTimeout = 0.0f;
-    public float injuryChance = 0.7f;
+    public float injuryChance = 0.1f;
     public float critChance = 0.15f;
     public float critMultiplier = 1.5f;
     public float stunMove = 0.0f;

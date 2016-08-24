@@ -4,8 +4,8 @@ using System.Collections;
 
 public class FixedNotifyController : MonoBehaviour {
 
-    public static int[] topSlots = new int[6];
-    public static int[] bottomSlots = new int[6];
+    public static int[] topSlots = new int[8];
+    public static int[] bottomSlots = new int[8];
 
     public Text text;
 
@@ -20,9 +20,15 @@ public class FixedNotifyController : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
+        Color color;
 	    if(cooldown > 0.0f)
         {
             cooldown -= Time.deltaTime;
+            if(cooldown <= 0.25f)
+            {
+                color = text.color;
+                text.color = new Color(color.r, color.g, color.b, Mathf.Max(0.0f, cooldown * 4.0f));
+            }
             if(cooldown <= 0.0f)
             {
                 if(alignment == 0)
@@ -47,8 +53,10 @@ public class FixedNotifyController : MonoBehaviour {
             if((slot = GetFreeSlot(bottomSlots)) != -1)
             {
                 text.alignment = TextAnchor.MiddleLeft;
+                text.rectTransform.anchorMin = new Vector2(0.0f, 0.0f);
+                text.rectTransform.anchorMax = new Vector2(0.0f, 0.0f);
                 text.rectTransform.pivot = new Vector2(0.0f, 0.0f);
-                text.rectTransform.anchoredPosition = new Vector2(10.0f, -((float)Screen.height) + 10.0f + ((float)slot) * 22.0f);
+                text.rectTransform.anchoredPosition = new Vector2(10.0f, 20.0f + ((float)slot) * 22.0f);
             }
             else
             {
@@ -60,9 +68,11 @@ public class FixedNotifyController : MonoBehaviour {
             if ((slot = GetFreeSlot(topSlots)) != -1)
             {
                 text.alignment = TextAnchor.MiddleRight;
+                text.rectTransform.anchorMin = new Vector2(1.0f, 1.0f);
+                text.rectTransform.anchorMax = new Vector2(1.0f, 1.0f);
                 text.rectTransform.pivot = new Vector2(1.0f, 1.0f);
-                text.rectTransform.anchoredPosition = new Vector2(((float)Screen.width) - 10.0f, -10.0f + ((float)slot) * -22.0f);
-            } 
+                text.rectTransform.anchoredPosition = new Vector2(-10.0f, -10.0f + ((float)slot) * -22.0f);
+            }
             else
             {
                 Destroy(gameObject);

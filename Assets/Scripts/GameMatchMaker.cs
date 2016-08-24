@@ -11,27 +11,19 @@ using System.Collections.Generic;
 public class GameMatchMaker : NetworkBehaviour
 {
 
-    //[NonSerialized]
-    public Camera camera;
-    public Button buttonTest;
 
-    //[NonSerialized]
     public GameObject gameNetworkPrefab;
     [NonSerialized]
     public GameNetwork gameNetwork;
-    //[NonSerialized]
+    public Camera camera;
     public Canvas canvasConnect;
-    //[NonSerialized]
     public Canvas canvasPlay;
-    //[NonSerialized]
     public Button startButton;
-    //[NonSerialized]
     public Button joinButton;
+    public InputField roomIdField;
     public string storedMatchName = "";
 
     public int joinAttempts = 0;
-
-    private bool isServer = false;
 
     void Start()
     {
@@ -40,14 +32,22 @@ public class GameMatchMaker : NetworkBehaviour
         canvasConnect.enabled = true;
         canvasPlay.enabled = false;
         startButton.onClick.AddListener(delegate() {
-            CreateInternetMatch("ninjaprototype");
+            CreateInternetMatch(roomIdField.text);
             canvasConnect.enabled = false;
         });
         joinButton.onClick.AddListener(delegate () {
-            FindInternetMatch("ninjaprototype");
+            FindInternetMatch(roomIdField.text);
             canvasConnect.enabled = false;
         });
         ((NetManager)NetManager.singleton).ServerConnect += OnServerConnect;
+    }
+
+    void OnGUI()
+    {
+        if(Input.GetKeyDown(KeyCode.Escape))
+        {
+            Application.Quit();
+        }
     }
 
     private void OnServerConnect(object sender, NetManager.NetworkConnectionEventArgs e)
@@ -57,22 +57,17 @@ public class GameMatchMaker : NetworkBehaviour
             gameNetwork = GameObject.Instantiate(gameNetworkPrefab).GetComponent<GameNetwork>();
             gameNetwork.camera = camera;
             gameNetwork.gameMatchMaker = this;
-            //gameNetwork.Init();
-            //gameNetwork.MatchCreated();
             NetworkServer.Spawn(gameNetwork.gameObject);
         }
         //Debug.Log("Client connected: " + e.conn.address);
     }
 
-    //call this method to request a match to be created on the server
     public void CreateInternetMatch(string matchName)
     {
         //Debug.Log("Create internet match");
-        isServer = true;
         NetManager.singleton.matchMaker.CreateMatch(matchName, 4, true, "", "", "", 0, 0, OnInternetMatchCreate);
     }
 
-    //this method is called when your request for creating a match is returned
     private void OnInternetMatchCreate(bool success, string extendedInfo, MatchInfo hostInfo)
     {
         if (hostInfo != null)
@@ -95,7 +90,6 @@ public class GameMatchMaker : NetworkBehaviour
         }
     }
 
-    //call this method to find a match through the matchmaker
     public void FindInternetMatch(string matchName)
     {
         if (gameNetwork != null)
@@ -107,7 +101,6 @@ public class GameMatchMaker : NetworkBehaviour
         NetManager.singleton.matchMaker.ListMatches(0, 20, matchName, true, 0, 0, OnInternetMatchList);
     }
 
-    //this method is called when a list of matches is returned
     private void OnInternetMatchList(bool success, string extendedInfo, List<MatchInfoSnapshot> matchList)
     {
         if (matchList != null)
@@ -145,8 +138,6 @@ public class GameMatchMaker : NetworkBehaviour
         {
             //Debug.Log("Able to join a match");
             NetManager.singleton.StartClient(matchInfo);
-            //NetManager.singleton
-            //gameNetwork.MatchJoined();
             canvasPlay.enabled = true;
         }
         else

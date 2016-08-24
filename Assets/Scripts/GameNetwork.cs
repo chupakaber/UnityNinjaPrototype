@@ -622,13 +622,14 @@ public class GameNetwork : NetworkBehaviour {
         MissileObject missileObject;
         PlayerObject playerObject;
         LocationObject playerLocationObject = GetLocationObject(player);
-        float staminaConsumption = 30.0f;
+        float staminaConsumption = 0.0f;
         if (playerLocationObject != null)
         {
             playerObject = (PlayerObject)playerLocationObject;
+            staminaConsumption = playerObject.staminaConsumption;
             if(playerObject.armInjury > 0.0f)
             {
-                staminaConsumption *= 1.5f;
+                staminaConsumption *= 1.0f + playerObject.armInjuryEffect;
             }
             if (playerObject.stamina >= staminaConsumption)
             {
@@ -695,15 +696,28 @@ public class GameNetwork : NetworkBehaviour {
 
         playerObject = new PlayerObject();
         playerObject.position = new Vector3(0.0f, 0.25f, 0.75f);
-        playerObject.health = 100.0f;
-        playerObject.stamina = 100.0f;
-        playerObject.maxStamina = 100.0f;
-        playerObject.staminaRegeneration = 10.0f;
         playerObject.direction = 1.0f;
         playerObject.strafeMinTimeout = 0.9f;
         playerObject.strafeMaxTimeout = 2.2f;
-        playerObject.strafeSpeed = 0.5f;
-        if(UnityEngine.Random.Range(0.0f, 1.0f) < 0.5f)
+        playerObject.health = gameMatchMaker.preferenceHealth;
+        playerObject.stamina = gameMatchMaker.preferenceStamina;
+        playerObject.maxStamina = gameMatchMaker.preferenceStamina;
+        playerObject.staminaConsumption = gameMatchMaker.preferenceStaminaConsume;
+        playerObject.staminaRegeneration = gameMatchMaker.preferenceStaminaRegeneration;
+        playerObject.minDamage = gameMatchMaker.preferenceMinDamage;
+        playerObject.maxDamage = gameMatchMaker.preferenceMaxDamage;
+        playerObject.critChance = gameMatchMaker.preferenceCritChance;
+        playerObject.critMultiplier = gameMatchMaker.preferenceCritMultiplier;
+        playerObject.injuryChance = gameMatchMaker.preferenceInjureChance;
+        playerObject.armInjuryEffect = gameMatchMaker.preferenceInjureArmEffect;
+        playerObject.legInjuryEffect = gameMatchMaker.preferenceInjureLegEffect;
+        playerObject.abilityEvadeChance = gameMatchMaker.preferenceAbilityEvadeChance;
+        playerObject.abilityCritChance = gameMatchMaker.preferenceAbilityCritChance;
+        playerObject.abilityStunDuration = gameMatchMaker.preferenceAbilityStunDuration;
+        playerObject.abilityShieldDuration = gameMatchMaker.preferenceAbilityShieldDuration;
+        playerObject.abilityShieldMultiplier = gameMatchMaker.preferenceAbilityShieldMultiplier;
+        playerObject.strafeSpeed = gameMatchMaker.preferenceStrafeSpeed;
+        if (UnityEngine.Random.Range(0.0f, 1.0f) < 0.5f)
         {
             playerObject.abilityEvade = 0.0f;
             playerObject.abilityStun = 0.0f;
@@ -723,14 +737,27 @@ public class GameNetwork : NetworkBehaviour {
         playerController.gameNetwork = this;
         playerObject = new PlayerObject();
         playerObject.position = new Vector3(0.0f, 0.25f, 0.75f);
-        playerObject.health = 100.0f;
-        playerObject.stamina = 100.0f;
-        playerObject.maxStamina = 100.0f;
-        playerObject.staminaRegeneration = 10.0f;
         playerObject.direction = 1.0f;
         playerObject.strafeMinTimeout = 0.9f;
         playerObject.strafeMaxTimeout = 2.2f;
-        playerObject.strafeSpeed = 0.5f;
+        playerObject.health = gameMatchMaker.preferenceHealth;
+        playerObject.stamina = gameMatchMaker.preferenceStamina;
+        playerObject.maxStamina = gameMatchMaker.preferenceStamina;
+        playerObject.staminaConsumption = gameMatchMaker.preferenceStaminaConsume;
+        playerObject.staminaRegeneration = gameMatchMaker.preferenceStaminaRegeneration;
+        playerObject.minDamage = gameMatchMaker.preferenceMinDamage;
+        playerObject.maxDamage = gameMatchMaker.preferenceMaxDamage;
+        playerObject.critChance = gameMatchMaker.preferenceCritChance;
+        playerObject.critMultiplier = gameMatchMaker.preferenceCritMultiplier;
+        playerObject.injuryChance = gameMatchMaker.preferenceInjureChance;
+        playerObject.armInjuryEffect = gameMatchMaker.preferenceInjureArmEffect;
+        playerObject.legInjuryEffect = gameMatchMaker.preferenceInjureLegEffect;
+        playerObject.abilityEvadeChance = gameMatchMaker.preferenceAbilityEvadeChance;
+        playerObject.abilityCritChance = gameMatchMaker.preferenceAbilityCritChance;
+        playerObject.abilityStunDuration = gameMatchMaker.preferenceAbilityStunDuration;
+        playerObject.abilityShieldDuration = gameMatchMaker.preferenceAbilityShieldDuration;
+        playerObject.abilityShieldMultiplier = gameMatchMaker.preferenceAbilityShieldMultiplier;
+        playerObject.strafeSpeed = gameMatchMaker.preferenceStrafeSpeed;
         if (UnityEngine.Random.Range(0.0f, 1.0f) < 0.5f)
         {
             playerObject.abilityEvade = 0.0f;
@@ -1026,7 +1053,7 @@ public class Location
                         }
                         else if(playerObject.legInjury > 0.0f)
                         {
-                            moveSpeed /= 1.5f;
+                            moveSpeed /= 1.0f + playerObject.legInjuryEffect;
                         }
                         playerObject.position.x += moveSpeed * deltaTime;
                         if(playerObject.position.x < -2.0f)
@@ -1178,7 +1205,15 @@ public class Location
                                             obstructionObject = (ObstructionObject)objNode2.Value;
                                             if(Mathf.Abs(missileObject.position.x - obstructionObject.position.x) < obstructionObject.scale)
                                             {
-                                                obstructionObject.durability -= UnityEngine.Random.Range(5.0f, 8.0f);
+                                                if(missileObject.direction.y > 0.0f)
+                                                {
+                                                    attackerObject = (PlayerObject)objects.First.Value;
+                                                }
+                                                else
+                                                {
+                                                    attackerObject = (PlayerObject)objects.First.Next.Value;
+                                                }
+                                                obstructionObject.durability -= UnityEngine.Random.Range(attackerObject.minDamage, attackerObject.maxDamage);
                                                 if(obstructionObject.durability <= 0.0f)
                                                 {
                                                     Debug.Log("obstructionObject DESTROY");
@@ -1275,7 +1310,7 @@ public class Location
                                                 hit = true;
                                                 attackerObject = (PlayerObject)objects.First.Next.Value;
                                             }
-                                            if (hit && playerObject.abilityEvade == 0.0f && UnityEngine.Random.Range(0.0f, 1.0f) < 0.2f)
+                                            if (hit && playerObject.abilityEvade == 0.0f && UnityEngine.Random.Range(0.0f, 1.0f) < playerObject.abilityEvadeChance)
                                             {
                                                 hit = false;
                                                 playerObject.abilityEvade = 5.0f;
@@ -1297,12 +1332,12 @@ public class Location
                                                 notifyMessage = "";
                                                 network.FlashPlayer(playerObject.id);
                                                 network.RpcFlashPlayer(playerObject.id);
-                                                damage = UnityEngine.Random.Range(5.0f, 8.0f);
+                                                damage = UnityEngine.Random.Range(attackerObject.minDamage, attackerObject.maxDamage);
                                                 critChance = attackerObject.critChance;
                                                 if (attackerObject.abilityCrit == 0.0f)
                                                 {
                                                     attackerObject.abilityCrit = 5.0f;
-                                                    critChance += 0.15f;
+                                                    critChance += attackerObject.abilityCritChance;
                                                     if (attackerObject.id == 0)
                                                     {
                                                         network.FlashPassiveAbility(attackerObject.id);
@@ -1321,7 +1356,7 @@ public class Location
                                                 if(playerObject.abilityShield >= 5.0f)
                                                 {
                                                     notifyMessage += "Щ";
-                                                    damage *= 0.5f;
+                                                    damage *= playerObject.abilityShieldMultiplier;
                                                     network.RpcShowNotice(playerObject.id, "+ ЩИТ", noticeOffset, 0, true);
                                                     network.ShowNotice(playerObject.id, "+ ЩИТ", noticeOffset, 0, true);
                                                     noticeOffset += 1.0f;
@@ -1342,7 +1377,7 @@ public class Location
                                                 if(attackerObject.stunMove > 0.0f)
                                                 {
                                                     attackerObject.stunMove = 0.0f;
-                                                    playerObject.stun += 5.0f;
+                                                    playerObject.stun += attackerObject.abilityStunDuration;
                                                     network.RpcShowNotice(playerObject.id, "- ОГЛУШЕН", noticeOffset, 1, true);
                                                     network.ShowNotice(playerObject.id, "- ОГЛУШЕН", noticeOffset, 1, true);
                                                     network.RpcShowNotice(playerObject.id, "- ОГЛУШЕН", 5.0f, 1, false);
@@ -1517,24 +1552,35 @@ public class PlayerObject : LocationObject
     public float strafeMinTimeout = 0.0f;
     public float strafeMaxTimeout = 0.0f;
 
-    public float health = 0.0f;
-    public float stamina = 0.0f;
-    public float maxStamina = 0.0f;
-    public float staminaRegeneration = 0.0f;
     public float direction = 0.0f;
-    public float strafeSpeed = 0.0f;
-    public float strafeTimeout = 0.0f;
-    public float injuryChance = 0.1f;
-    public float critChance = 0.15f;
-    public float critMultiplier = 1.5f;
     public float stunMove = 0.0f;
     public float stun = 0.0f;
+    public float strafeTimeout = 0.0f;
     public float armInjury = 0.0f;
     public float legInjury = 0.0f;
     public float abilityShield = -1.0f;
     public float abilityStun = -1.0f;
     public float abilityCrit = -1.0f;
     public float abilityEvade = -1.0f;
+
+    public float health = 0.0f;
+    public float stamina = 0.0f;
+    public float maxStamina = 0.0f;
+    public float staminaConsumption = 0.0f;
+    public float staminaRegeneration = 0.0f;
+    public float minDamage = 0.0f;
+    public float maxDamage = 0.0f;
+    public float critChance = 0.15f;
+    public float critMultiplier = 1.5f;
+    public float injuryChance = 0.1f;
+    public float armInjuryEffect = 0.0f;
+    public float legInjuryEffect = 0.0f;
+    public float abilityEvadeChance = 0.0f;
+    public float abilityCritChance = 0.0f;
+    public float abilityStunDuration = 0.0f;
+    public float abilityShieldDuration = 0.0f;
+    public float abilityShieldMultiplier = 0.0f;
+    public float strafeSpeed = 0.0f;
 
     public PlayerController visualObject;
 

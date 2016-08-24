@@ -16,19 +16,53 @@ Platform assembly: C:\Users\Chupakaber\Documents\Projects\NinjaTest\NinjaTest\Un
 Loading C:\Users\Chupakaber\Documents\Projects\NinjaTest\NinjaTest\UnityNinjaPrototype\Bin\NinjaPrototype_Data\Managed\UnityEngine.Networking.dll into Unity Child Domain
 Platform assembly: C:\Users\Chupakaber\Documents\Projects\NinjaTest\NinjaTest\UnityNinjaPrototype\Bin\NinjaPrototype_Data\Managed\UnityEngine.Analytics.dll (this message is harmless)
 Loading C:\Users\Chupakaber\Documents\Projects\NinjaTest\NinjaTest\UnityNinjaPrototype\Bin\NinjaPrototype_Data\Managed\UnityEngine.Analytics.dll into Unity Child Domain
-- Completed reload, in  0.076 seconds
+- Completed reload, in  0.080 seconds
 Platform assembly: C:\Users\Chupakaber\Documents\Projects\NinjaTest\NinjaTest\UnityNinjaPrototype\Bin\NinjaPrototype_Data\Managed\System.Core.dll (this message is harmless)
 Platform assembly: C:\Users\Chupakaber\Documents\Projects\NinjaTest\NinjaTest\UnityNinjaPrototype\Bin\NinjaPrototype_Data\Managed\System.dll (this message is harmless)
 desktop: 1600x900 60Hz; virtual: 1600x900 at 0,0
 <RI> Initializing input.
 <RI> Input initialized.
 <RI> Initialized touch support.
-UnloadTime: 1.027579 ms
+UnloadTime: 1.005770 ms
 MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
  
 (Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
 
-MatchMakingClient Join :https://mm.unet.unity3d.com/json/reply/JoinMatchRequest
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
  
 (Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
 
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+MatchMakingClient ListMatches :https://mm.unet.unity3d.com/json/reply/ListMatchRequest
+ 
+(Filename: C:/buildslave/unity/build/artifacts/generated/common/runtime/UnityEngineDebugBindings.gen.cpp Line: 42)
+
+Setting up 1 worker threads for Enlighten.
+  Thread -> id: 2004 -> priority: 1 

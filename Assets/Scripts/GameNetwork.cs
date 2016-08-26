@@ -584,12 +584,17 @@ public class GameNetwork : NetworkBehaviour {
             }
             lastTouchX = touchX;
             lastTouchY = touchY;
+            if (throwState == ThrowState.TOUCHED)
+            {
+                armedMissile.SetAnchor(new Vector2(lastTouchX, 1.0f - lastTouchY));
+            }
         }
         else
         {
             if (throwState == ThrowState.TOUCHED)
             {
                 throwState = ThrowState.NONE;
+                armedMissile.ResetAnchor();
             }
         }
         swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
@@ -657,7 +662,7 @@ public class GameNetwork : NetworkBehaviour {
                 missileController.gameNetwork = this;
                 missileObject = new MissileObject();
                 missileObject.position = new Vector3(playerLocationObject.position.x, -1.0f, 0.1f);
-                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, Mathf.Max(0.5f, 1.0f - angle.y)), Mathf.Min(0.5f, Math.Max(0.0f, speed / 2.5f)))).normalized;
+                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, Mathf.Max(0.5f, 1.0f - angle.y)), Mathf.Min(0.5f, Math.Max(0.0f, speed / 5.0f)))).normalized;
                 missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
                 missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
                 missileObject.torsion = new Vector3(0.0f, torsion * 45.0f, 0.0f);
@@ -672,7 +677,7 @@ public class GameNetwork : NetworkBehaviour {
                         RpcRearmMissile();
                     }
                 }
-                missileObject.velocity = Mathf.Min(2.0f, Mathf.Max(0.6f, speed)) * 1.5f;
+                missileObject.velocity = Mathf.Min(1.2f, Mathf.Max(0.8f, speed)) * 4.0f;
                 missileController.obj = missileObject;
                 location.AddObject(missileObject);
                 missileController.transform.position = missileObject.position;
@@ -876,7 +881,7 @@ public class SwipePoint
 public class SwipeController
 {
 
-    public float minLength = 0.05f;
+    public float minLength = 0.1f;
     public float maxLength = 0.5f;
 
     public bool active = true;
@@ -946,17 +951,16 @@ public class SwipeController
                 prevPointNode = pointNode;
                 pointNode = pointNode.Next;
             }
-            if (started && pointsList.Count > 3 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point - newPoint).y < 0.0f)))
+            if (started && pointsList.Count > 3 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (pointsList.Last.Previous.Value.point - newPoint).magnitude / newDuration < length / duration * 0.1f))))
             {
                 SwipeEventArgs eventArgs = new SwipeEventArgs();
                 eventArgs.angle = new Vector2(Mathf.Atan(beginX / beginY) * 180.0f / Mathf.PI, length / maxLength);
-                eventArgs.torsion = Vector2.Angle(new Vector2(endX, endY), new Vector2(beginX, beginY)) / 90.0f;
+                eventArgs.torsion = Vector2.Angle(new Vector2(endX, endY), new Vector2(beginX, beginY)) / 30.0f * Mathf.Max(0.0f, Mathf.Min(1.0f, duration / 0.4f));
                 if(endX < beginX)
                 {
                     eventArgs.torsion *= -1.0f;
                 }
-                eventArgs.speed = Mathf.Sqrt(0.4f / duration);
-                Debug.Log("InvokeThrow. pointsCount: " + pointsList.Count + "; length: " + length + "; duration: " + duration);
+                eventArgs.speed = Mathf.Sqrt(0.2f / duration);
                 InvokeAction(eventArgs);
                 touched = false;
                 started = true;

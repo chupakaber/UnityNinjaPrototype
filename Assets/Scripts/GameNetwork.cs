@@ -38,6 +38,7 @@ public class GameNetwork : NetworkBehaviour {
     public Text healthBarEnemy;
     public Camera camera;
     public Location location;
+    public SwipeController swipeController = new SwipeController();
     public bool ready = false;
     public bool updating = false;
     public float updateTimeout = 0.2f;
@@ -405,6 +406,7 @@ public class GameNetwork : NetworkBehaviour {
         healthBarEnemy = GameObject.Find("HealthValueEnemy").GetComponent<Text>();
         abilityActiveButton = GameObject.Find("AbilityActiveButton").GetComponent<AbilityButtonController>();
         abilityPassiveButton = GameObject.Find("AbilityPassiveButton").GetComponent<AbilityButtonController>();
+        swipeController.OnInvokeAction += OnThrow;
         if (!isServer)
         {
             ClientInit();
@@ -435,6 +437,7 @@ public class GameNetwork : NetworkBehaviour {
         NetworkServer.RegisterHandler(101, ReceiveClientIntMessage);
         NetworkServer.RegisterHandler(102, ReceiveClientFloatMessage);
         NetworkServer.RegisterHandler(103, ReceiveClientDoubleFloatMessage);
+        NetworkServer.RegisterHandler(104, ReceiveClientFourFloatMessage);
         abilityActiveButton.button.onClick.AddListener(delegate () {
             if (abilityActiveButton.Activate(10.0f))
             {
@@ -488,8 +491,17 @@ public class GameNetwork : NetworkBehaviour {
         DoubleFloatEventMessage msg = netMsg.ReadMessage<DoubleFloatEventMessage>();
         switch (msg.clientEvent)
         {
+        }
+        //Debug.Log("Received[" + msg.clientEvent + "]: " + msg.value1 + " ; " + msg.value2);
+    }
+
+    public void ReceiveClientFourFloatMessage(NetworkMessage netMsg)
+    {
+        FourFloatEventMessage msg = netMsg.ReadMessage<FourFloatEventMessage>();
+        switch (msg.clientEvent)
+        {
             case ClientEvent.THROW:
-                Throw(1, msg.value1, msg.value2);
+                Throw(1, new Vector2(msg.value1, msg.value2), msg.value3, msg.value4);
                 break;
         }
         //Debug.Log("Received[" + msg.clientEvent + "]: " + msg.value1 + " ; " + msg.value2);
@@ -525,6 +537,17 @@ public class GameNetwork : NetworkBehaviour {
         msg.value1 = value1;
         msg.value2 = value2;
         NetworkManager.singleton.client.Send(103, msg);
+    }
+
+    public void SendFourFloatMessage(ClientEvent clientEvent, float value1, float value2, float value3, float value4)
+    {
+        FourFloatEventMessage msg = new FourFloatEventMessage();
+        msg.clientEvent = clientEvent;
+        msg.value1 = value1;
+        msg.value2 = value2;
+        msg.value3 = value3;
+        msg.value4 = value4;
+        NetworkManager.singleton.client.Send(104, msg);
     }
 
 
@@ -567,56 +590,52 @@ public class GameNetwork : NetworkBehaviour {
             if (throwState == ThrowState.TOUCHED)
             {
                 throwState = ThrowState.NONE;
-                if (lastTouchY < 0.75f)
-                {
-                    angle = (lastTouchX - 0.5f) * 2.0f;
-                    power = Math.Min(1.0f, lastTouchY * 2.0f);
-                    if (isServer)
-                    {
-                        Throw(0, angle, power);
-                    }
-                    else
-                    {
-                        SendDoubleFloatMessage(ClientEvent.THROW, angle, power);
-                    }
-                }
             }
         }
+        swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
 #else
         if (Input.GetMouseButtonDown(0))
         {
             if (throwState != ThrowState.TOUCHED)
             {
-                if (mouseX > 0.25f && mouseX < 0.75f && mouseY > 0.8f && mouseY < 1.0f)
-                {
-                    throwState = ThrowState.TOUCHED;
-                }
+                //if (mouseX > 0.25f && mouseX < 0.75f && mouseY > 0.8f && mouseY < 1.0f)
+                //{
+                throwState = ThrowState.TOUCHED;
+                //}
             }
+        }
+        if( Input.GetMouseButton(0))
+        {
+            lastTouchX = mouseX;
+            lastTouchY = mouseY;
         }
         if (Input.GetMouseButtonUp(0))
         {
             if (throwState == ThrowState.TOUCHED)
             {
                 throwState = ThrowState.NONE;
-                if (mouseY < 0.75f)
-                {
-                    angle = (mouseX - 0.5f) * 2.0f;
-                    power = Math.Min(1.0f, mouseY * 2.0f);
-                    if (isServer)
-                    {
-                        Throw(0, angle, power);
-                    }
-                    else
-                    {
-                        SendDoubleFloatMessage(ClientEvent.THROW, angle, power);
-                    }
-                }
+                //if (mouseY < 0.75f)
+                //{
+                //}
             }
         }
+        swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
 #endif
     }
 
-    public void Throw(int player, float angle, float power)
+    public void OnThrow(object sender, SwipeEventArgs e)
+    {
+        if (isServer)
+        {
+            Throw(0, e.angle, e.torsion, e.speed);
+        }
+        else
+        {
+            SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
+        }
+    }
+
+    public void Throw(int player, Vector2 angle, float torsion, float speed)
     {
         MissileController missileController;
         MissileObject missileObject;
@@ -637,25 +656,23 @@ public class GameNetwork : NetworkBehaviour {
                 missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
                 missileController.gameNetwork = this;
                 missileObject = new MissileObject();
-                if (player == 0)
+                missileObject.position = new Vector3(playerLocationObject.position.x, -1.0f, 0.1f);
+                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, Mathf.Max(0.5f, 1.0f - angle.y)), Mathf.Min(0.5f, Math.Max(0.0f, speed / 2.5f)))).normalized;
+                missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
+                missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
+                missileObject.torsion = new Vector3(0.0f, torsion * 45.0f, 0.0f);
+                if (isServer)
                 {
-                    missileObject.position = new Vector3(playerLocationObject.position.x, -1.0f, 0.1f);
-                    missileObject.direction = new Vector3(angle * 0.2f, 0.5f, 0.5f);
-                    if (isServer)
+                    if (player == 0)
                     {
                         armedMissile.Rearm();
                     }
-                }
-                else
-                {
-                    missileObject.position = new Vector3(playerLocationObject.position.x, 1.0f, 0.1f);
-                    missileObject.direction = new Vector3(angle * 0.2f, -0.5f, 0.5f);
-                    if (isServer)
+                    else
                     {
                         RpcRearmMissile();
                     }
                 }
-                missileObject.velocity = Mathf.Max(0.7f, power) * 0.1f;
+                missileObject.velocity = Mathf.Min(2.0f, Mathf.Max(0.6f, speed)) * 1.5f;
                 missileController.obj = missileObject;
                 location.AddObject(missileObject);
                 missileController.transform.position = missileObject.position;
@@ -776,30 +793,50 @@ public class GameNetwork : NetworkBehaviour {
         location.AddObject(playerObject);
         playerController.transform.position = playerObject.position;
 
-        for (i = 0; i < 6; i++)
+        for (i = 0; i < 4; i++)
         {
             visualId = Math.Min(UnityEngine.Random.Range(0, obstructionPrefabs.Length), obstructionPrefabs.Length - 1);
+            if(visualId == 2)
+            {
+                visualId = 1;
+            }
+            obstructionController = (Instantiate(obstructionPrefabs[visualId])).GetComponent<ObstructionController>();
+            obstructionController.gameNetwork = this;
+            obstructionObject = new ObstructionObject();
+            obstructionObject.position = new Vector3(((float)(i - 2)) + UnityEngine.Random.Range(0.01f, 0.9f), UnityEngine.Random.Range(-0.22f, 0.0f), 0.5f);
+            switch(visualId)
+            {
+                case 0:
+                    obstructionObject.scale = 0.3f;
+                    obstructionObject.durability = 1000.0f;
+                    break;
+                case 1:
+                    obstructionObject.scale = 0.1f;
+                    obstructionObject.durability = 1000.0f;
+                    obstructionObject.position.y = -0.24f;
+                    break;
+                case 3:
+                    obstructionObject.scale = 0.18f;
+                    obstructionObject.durability = 1000.0f;
+                    break;
+            }
+            obstructionObject.visualId = visualId;
+            obstructionController.obj = obstructionObject;
+            location.AddObject(obstructionObject);
+            obstructionController.transform.position = obstructionObject.position;
+        }
+        for (i = 0; i < 6; i++)
+        {
+            visualId = 2;
             obstructionController = (Instantiate(obstructionPrefabs[visualId])).GetComponent<ObstructionController>();
             obstructionController.gameNetwork = this;
             obstructionObject = new ObstructionObject();
             obstructionObject.position = new Vector3(((float)(i - 2)) * 0.66f + UnityEngine.Random.Range(0.05f, 0.6f), UnityEngine.Random.Range(-0.22f, 0.0f), 0.5f);
-            switch(visualId)
+            switch (visualId)
             {
-                case 0:
-                    obstructionObject.scale = 0.12f;
-                    obstructionObject.durability = 30.0f;
-                    break;
-                case 1:
-                    obstructionObject.scale = 0.04f;
-                    obstructionObject.durability = 50.0f;
-                    break;
                 case 2:
-                    obstructionObject.scale = 0.1f;
+                    obstructionObject.scale = 0.2f;
                     obstructionObject.durability = 10.0f;
-                    break;
-                case 3:
-                    obstructionObject.scale = 0.09f;
-                    obstructionObject.durability = 20.0f;
                     break;
             }
             obstructionObject.visualId = visualId;
@@ -812,6 +849,135 @@ public class GameNetwork : NetworkBehaviour {
     public LocationObject GetLocationObject(int id)
     {
         return location.GetObject(id);
+    }
+
+}
+
+public class SwipeEventArgs : EventArgs
+{
+    public Vector2 angle;
+    public float torsion;
+    public float speed;
+}
+
+public class SwipePoint
+{
+    public Vector2 point;
+    public float duration;
+
+    public SwipePoint(Vector2 newPoint, float newDuration)
+    {
+        point = newPoint;
+        duration = newDuration;
+    }
+
+}
+
+public class SwipeController
+{
+
+    public float minLength = 0.05f;
+    public float maxLength = 0.5f;
+
+    public bool active = true;
+    public bool started = false;
+    public LinkedList<SwipePoint> pointsList = new LinkedList<SwipePoint>();
+
+    private Vector2 direction = Vector2.zero;
+
+    public SwipeController()
+    {
+    }
+
+    public void AddPoint(Vector2 newPoint, float newDuration, bool touched)
+    {
+        if (active)
+        {
+            int i = 0;
+            float length = 0.0f;
+            float duration = 0.0f;
+            float beginX = 0.0f;
+            float beginY = 0.0f;
+            float endX = 0.0f;
+            float endY = 0.0f;
+            Vector2 v2Delta = Vector2.zero;
+            LinkedListNode<SwipePoint> prevPointNode = null;
+            LinkedListNode<SwipePoint> pointNode = null;
+            if(!started && !touched)
+            {
+                return;
+            }
+            if (started || (touched && newPoint.x > 0.25 && newPoint.x < 0.75 && newPoint.y > 0.8))
+            {
+                if (!started)
+                {
+                    started = true;
+                }
+                pointsList.AddLast(new SwipePoint(newPoint, newDuration));
+            }
+            pointNode = pointsList.First;
+            while (pointNode != null)
+            {
+                if(prevPointNode != null)
+                {
+                    v2Delta = pointNode.Value.point - prevPointNode.Value.point;
+                }
+                else
+                {
+                    v2Delta = Vector2.zero;
+                }
+                v2Delta.y *= -1.0f;
+                if (v2Delta.y > 0.0f)
+                {
+                    length += v2Delta.magnitude;
+                    duration += pointNode.Value.duration;
+                    if (i < pointsList.Count * 3 / 4)
+                    {
+                        beginX += v2Delta.x;
+                        beginY += v2Delta.y;
+                    }
+                    else
+                    {
+                        endX += v2Delta.x;
+                        endY += v2Delta.y;
+                    }
+                }
+                i++;
+                prevPointNode = pointNode;
+                pointNode = pointNode.Next;
+            }
+            if (started && pointsList.Count > 3 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point - newPoint).y < 0.0f)))
+            {
+                SwipeEventArgs eventArgs = new SwipeEventArgs();
+                eventArgs.angle = new Vector2(Mathf.Atan(beginX / beginY) * 180.0f / Mathf.PI, length / maxLength);
+                eventArgs.torsion = Vector2.Angle(new Vector2(endX, endY), new Vector2(beginX, beginY)) / 90.0f;
+                if(endX < beginX)
+                {
+                    eventArgs.torsion *= -1.0f;
+                }
+                eventArgs.speed = Mathf.Sqrt(0.4f / duration);
+                Debug.Log("InvokeThrow. pointsCount: " + pointsList.Count + "; length: " + length + "; duration: " + duration);
+                InvokeAction(eventArgs);
+                touched = false;
+                started = true;
+            }
+            if ((!touched && started) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point - newPoint).y < 0.0f))
+            {
+                pointsList.Clear();
+                started = false;
+            }
+        }
+    }
+
+    public event EventHandler<SwipeEventArgs> OnInvokeAction;
+
+    public void InvokeAction(SwipeEventArgs e)
+    {
+        EventHandler<SwipeEventArgs> handler = OnInvokeAction;
+        if(handler != null)
+        {
+            handler(this, e);
+        }
     }
 
 }
@@ -838,6 +1004,15 @@ class DoubleFloatEventMessage : MessageBase
     public GameNetwork.ClientEvent clientEvent;
     public float value1 = 0.0f;
     public float value2 = 0.0f;
+}
+
+class FourFloatEventMessage : MessageBase
+{
+    public GameNetwork.ClientEvent clientEvent;
+    public float value1 = 0.0f;
+    public float value2 = 0.0f;
+    public float value3 = 0.0f;
+    public float value4 = 0.0f;
 }
 
 class LocationObjectEventMessage : MessageBase
@@ -1001,10 +1176,10 @@ public class Location
                         missileObject = (MissileObject)objNode.Value;
                         if (missileObject.visualObject != null)
                         {
-                            v3Delta = new Vector3(missileObject.position.x, missileObject.position.y * 0.8f, missileObject.position.y) - missileObject.visualObject.transform.position;
+                            v3Delta = new Vector3(missileObject.position.x, missileObject.position.z * 0.2f + missileObject.position.y * 0.35f, missileObject.position.y) - missileObject.visualObject.transform.position;
                             missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 5.0f);
                             scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
-                            missileObject.visualObject.transform.localScale = new Vector3(scale, scale, 1.0f);
+                            missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
                         }
                         break;
                 }
@@ -1046,16 +1221,7 @@ public class Location
                 {
                     case ObjectType.PLAYER:
                         playerObject = (PlayerObject)objNode.Value;
-                        moveSpeed = playerObject.direction * playerObject.strafeSpeed;
-                        if(playerObject.stun > 0.0f)
-                        {
-                            moveSpeed = 0.0f;
-                        }
-                        else if(playerObject.legInjury > 0.0f)
-                        {
-                            moveSpeed /= 1.0f + playerObject.legInjuryEffect;
-                        }
-                        playerObject.position.x += moveSpeed * deltaTime;
+                        playerObject.position.x += playerObject.MoveSpeed() * deltaTime;
                         if(playerObject.position.x < -2.0f)
                         {
                             playerObject.position += Vector3.right * 4.0f;
@@ -1177,11 +1343,16 @@ public class Location
                         break;
                     case ObjectType.MISSILE:
                         missileObject = (MissileObject)objNode.Value;
-                        missileObject.direction.z += -0.98f * 1.5f * deltaTime;
+                        missileObject.direction = Quaternion.Euler(missileObject.torsion.x * deltaTime, missileObject.torsion.y * deltaTime, missileObject.torsion.z * deltaTime) * missileObject.direction;
+                        missileObject.direction.z += -0.98f * 0.5f * deltaTime;
                         missileObject.direction.Normalize();
-                        missileObject.position.x += missileObject.direction.x * missileObject.velocity;
-                        missileObject.position.y += missileObject.direction.y * missileObject.velocity;
-                        missileObject.position.z += missileObject.direction.z * missileObject.velocity;
+                        missileObject.position.x += missileObject.passiveVelocity.x * deltaTime;
+                        missileObject.position.y += missileObject.passiveVelocity.y * deltaTime;
+                        missileObject.position.z += missileObject.passiveVelocity.z * deltaTime;
+                        missileObject.position.x += missileObject.direction.x * missileObject.velocity * deltaTime;
+                        missileObject.position.y += missileObject.direction.y * missileObject.velocity * deltaTime;
+                        missileObject.position.z += missileObject.direction.z * missileObject.velocity * deltaTime;
+                        Debug.Log("missileObject position: " + missileObject.position);
                         if (missileObject.position.z <= 0.0f)
                         {
                             Debug.Log("missileObject DESTROY by position.z");
@@ -1191,7 +1362,7 @@ public class Location
                             }
                             RemoveObject(objNode.Value);
                         }
-                        else if(missileObject.position.y > 0.7f && (missileObject.position - missileObject.direction * missileObject.velocity).y <= 0.7f)
+                        else if(missileObject.position.y > 0.7f && missileObject.position.y - missileObject.direction.y * missileObject.velocity * deltaTime <= 0.7f)
                         {
                             objNode2 = objects.First;
                             while (objNode2 != null)
@@ -1519,6 +1690,8 @@ public class LocationObject
     public Location.ObjectType objectType = Location.ObjectType.NONE;
     public int visualId = -1;
     public Vector3 position = new Vector3(0.0f, 0.0f, 0.0f);
+    public Vector3 passiveVelocity = new Vector3(0.0f, 0.0f, 0.0f);
+    public Vector3 torsion = new Vector3(0.0f, 0.0f, 0.0f);
     public float scale = 0.0f;
 
     public LocationObject()
@@ -1583,6 +1756,20 @@ public class PlayerObject : LocationObject
     public float strafeSpeed = 0.0f;
 
     public PlayerController visualObject;
+
+    public float MoveSpeed()
+    {
+        float moveSpeed = direction * strafeSpeed;
+        if (stun > 0.0f)
+        {
+            moveSpeed = 0.0f;
+        }
+        else if (legInjury > 0.0f)
+        {
+            moveSpeed /= 1.0f + legInjuryEffect;
+        }
+        return moveSpeed;
+    }
 
 }
 

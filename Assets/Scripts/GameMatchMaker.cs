@@ -20,6 +20,7 @@ public class GameMatchMaker : NetworkBehaviour
     public Canvas canvasSettings;
     public Button startButton;
     public Button joinButton;
+    public Button startLocalButton;
     public Button settingsButton;
     public InputField roomIdField;
     public string storedMatchName = "";
@@ -88,6 +89,13 @@ public class GameMatchMaker : NetworkBehaviour
             FindInternetMatch(roomIdField.text);
             canvasConnect.enabled = false;
         });
+        startLocalButton.onClick.AddListener(delegate () {
+            UpdatePreferences();
+            gameNetwork = GameObject.Instantiate(gameNetworkPrefab).GetComponent<GameNetwork>();
+            gameNetwork.camera = camera;
+            gameNetwork.gameMatchMaker = this;
+            gameNetwork.isLocal = true;
+        });
         ((NetManager)NetManager.singleton).ServerConnect += OnServerConnect;
     }
 
@@ -113,23 +121,7 @@ public class GameMatchMaker : NetworkBehaviour
 
     public void CreateInternetMatch(string matchName)
     {
-        preferenceHealth = float.Parse(preferenceFieldHealth.text);
-        preferenceStamina = float.Parse(preferenceFieldStamina.text);
-        preferenceStaminaConsume = float.Parse(preferenceFieldStaminaConsume.text);
-        preferenceStaminaRegeneration = float.Parse(preferenceFieldStaminaRegeneration.text);
-        preferenceMinDamage = float.Parse(preferenceFieldMinDamage.text);
-        preferenceMaxDamage = float.Parse(preferenceFieldMaxDamage.text);
-        preferenceCritChance = float.Parse(preferenceFieldCritChance.text) * 0.01f;
-        preferenceCritMultiplier = float.Parse(preferenceFieldCritMultiplier.text);
-        preferenceInjureChance = float.Parse(preferenceFieldInjureChance.text) * 0.01f;
-        preferenceAbilityEvadeChance = float.Parse(preferenceFieldAbilityEvadeChance.text) * 0.01f;
-        preferenceAbilityCritChance = float.Parse(preferenceFieldAbilityCritChance.text) * 0.01f;
-        preferenceAbilityStunDuration = float.Parse(preferenceFieldAbilityStunDuration.text);
-        preferenceAbilityShieldDuration = float.Parse(preferenceFieldAbilityShieldDuration.text);
-        preferenceAbilityShieldMultiplier = float.Parse(preferenceFieldAbilityShieldMultiplier.text) * 0.01f;
-        preferenceInjureArmEffect = float.Parse(preferenceFieldInjureArmEffect.text) * 0.01f;
-        preferenceInjureLegEffect = float.Parse(preferenceFieldInjureLegEffect.text) * 0.01f;
-        preferenceStrafeSpeed = float.Parse(preferenceFieldStrafeSpeed.text);
+        UpdatePreferences();
         //Debug.Log("Create internet match");
         NetManager.singleton.matchMaker.CreateMatch(matchName, 4, true, "", "", "", 0, 0, OnInternetMatchCreate);
     }
@@ -210,6 +202,27 @@ public class GameMatchMaker : NetworkBehaviour
         {
             //Debug.LogError("Join match failed");
         }
+    }
+
+    public void UpdatePreferences()
+    {
+        preferenceHealth = float.Parse(preferenceFieldHealth.text);
+        preferenceStamina = float.Parse(preferenceFieldStamina.text);
+        preferenceStaminaConsume = float.Parse(preferenceFieldStaminaConsume.text);
+        preferenceStaminaRegeneration = float.Parse(preferenceFieldStaminaRegeneration.text);
+        preferenceMinDamage = float.Parse(preferenceFieldMinDamage.text);
+        preferenceMaxDamage = float.Parse(preferenceFieldMaxDamage.text);
+        preferenceCritChance = float.Parse(preferenceFieldCritChance.text) * 0.01f;
+        preferenceCritMultiplier = float.Parse(preferenceFieldCritMultiplier.text);
+        preferenceInjureChance = float.Parse(preferenceFieldInjureChance.text) * 0.01f;
+        preferenceAbilityEvadeChance = float.Parse(preferenceFieldAbilityEvadeChance.text) * 0.01f;
+        preferenceAbilityCritChance = float.Parse(preferenceFieldAbilityCritChance.text) * 0.01f;
+        preferenceAbilityStunDuration = float.Parse(preferenceFieldAbilityStunDuration.text);
+        preferenceAbilityShieldDuration = float.Parse(preferenceFieldAbilityShieldDuration.text);
+        preferenceAbilityShieldMultiplier = float.Parse(preferenceFieldAbilityShieldMultiplier.text) * 0.01f;
+        preferenceInjureArmEffect = float.Parse(preferenceFieldInjureArmEffect.text) * 0.01f;
+        preferenceInjureLegEffect = float.Parse(preferenceFieldInjureLegEffect.text) * 0.01f;
+        preferenceStrafeSpeed = float.Parse(preferenceFieldStrafeSpeed.text);
     }
 
 }

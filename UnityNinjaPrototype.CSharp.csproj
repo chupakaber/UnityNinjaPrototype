@@ -83,6 +83,7 @@
     <Compile Include="Assets\Scripts\ObstructionController.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Scripts\ScreenEffectsController.cs" />
+    <Compile Include="Assets\Scripts\Structures.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\SyntaxTree\UnityVS\2015\UnityVS.CSharp.targets" />
 </Project>

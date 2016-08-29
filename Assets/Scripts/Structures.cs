@@ -120,13 +120,18 @@ public class SwipeController
                         endY += v2Delta.y;
                     }
                     */
+                    // Конец траектории считаем по последней четверти свайпа
                     if (i >= pointsList.Count * 3 / 4)
                     {
                         endX += v2Delta.x;
                         endY += v2Delta.y;
                     }
-                    fullX += v2Delta.x;
-                    fullY += v2Delta.y;
+                    // Исключаем последнюю точку из общей траектории свайпа
+                    if (i < pointsList.Count - 1)
+                    {
+                        fullX += v2Delta.x;
+                        fullY += v2Delta.y;
+                    }
                 }
                 if (v2Delta.y < 0.0f && locked)
                 {
@@ -140,7 +145,7 @@ public class SwipeController
                 pointNode = pointNodeNext;
             }
             //if (started && !locked && pointsList.Count > 10 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (pointsList.Last.Previous.Value.point - newPoint).magnitude / newDuration < length / duration * 0.1f))))
-            if (started && !locked && pointsList.Count > 10 && length > minLength && fullY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f)))))
+            if (started && !locked && pointsList.Count > 6 && length > minLength && fullY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f)))))
             {
                 // Угол броска по горизонтали не больше 45 градусов от прямого направления
                 if (Mathf.Abs(fullX) > Mathf.Abs(fullY))
@@ -163,7 +168,7 @@ public class SwipeController
                 {
                     eventArgs.torsion = -v2Delta.x / Mathf.Abs(v2Delta.x) * 90.0f * (Mathf.Abs(v2Delta.x) * 4.0f - Mathf.Abs(v2Delta.y)) / 2.0f; // 2.0f - Высчитать коефициент в зависимости от времени полета (обратно пропорционально скорости) и угла между 30 и 45 градусами отклонения
                 }
-                eventArgs.angle = new Vector2(Mathf.Atan(v2Delta.x / v2Delta.y) * 180.0f / Mathf.PI, length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.6f);
+                eventArgs.angle = new Vector2(Mathf.Atan(v2Delta.x / v2Delta.y) * 180.0f / Mathf.PI, length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.4f);
                 eventArgs.speed = Mathf.Sqrt(0.2f / duration);
                 InvokeAction(eventArgs);
                 touched = false;
@@ -315,15 +320,15 @@ public class Location
                         playerObject = (PlayerObject)objNode.Value;
                         if (playerObject.visualObject != null)
                         {
-                            if (Mathf.Abs(network.camera.transform.position.x - playerObject.position.x) > 2.0f)
+                            if (Mathf.Abs(network.camera.transform.position.x - playerObject.position.x) > 3.0f)
                             {
                                 if (network.camera.transform.position.x - playerObject.position.x > 0.0f)
                                 {
-                                    playerObject.position += Vector3.right * 4.0f;
+                                    playerObject.position += Vector3.right * 6.0f;
                                 }
                                 else
                                 {
-                                    playerObject.position += Vector3.right * -4.0f;
+                                    playerObject.position += Vector3.right * -6.0f;
                                 }
                             }
                             v3Delta = Vector3.right * (playerObject.position.x * 1.0f - playerObject.visualObject.transform.position.x);
@@ -331,15 +336,15 @@ public class Location
                             {
                                 if (v3Delta.x > 0.0f)
                                 {
-                                    playerObject.visualObject.transform.position += Vector3.right * 4.0f;
+                                    playerObject.visualObject.transform.position += Vector3.right * 6.0f;
                                 }
                                 else
                                 {
-                                    playerObject.visualObject.transform.position += Vector3.right * -4.0f;
+                                    playerObject.visualObject.transform.position += Vector3.right * -6.0f;
                                 }
                                 v3Delta = Vector3.right * (playerObject.position.x * 1.0f - playerObject.visualObject.transform.position.x);
                             }
-                            playerObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 5.0f);
+                            playerObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                         }
                         else
                         {
@@ -356,7 +361,7 @@ public class Location
                                 }
                                 v3Delta = Vector3.right * (playerObject.position.x * 1.0f - network.camera.transform.position.x);
                             }
-                            network.camera.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 5.0f);
+                            network.camera.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                         }
                         if ((playerObject.id == 0 && network.isServer) || (playerObject.id == 1 && !network.isServer))
                         {
@@ -387,7 +392,7 @@ public class Location
                         if (missileObject.visualObject != null)
                         {
                             v3Delta = missileObject.position - missileObject.visualObject.transform.position;
-                            missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 5.0f);
+                            missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                             //scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
                             //missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
                         }
@@ -432,13 +437,13 @@ public class Location
                     case ObjectType.PLAYER:
                         playerObject = (PlayerObject)objNode.Value;
                         playerObject.position.x += playerObject.MoveSpeed() * deltaTime;
-                        if (playerObject.position.x < -2.0f)
+                        if (playerObject.position.x < -3.0f)
                         {
-                            playerObject.position += Vector3.right * 4.0f;
+                            playerObject.position += Vector3.right * 6.0f;
                         }
-                        if (playerObject.position.x > 2.0f)
+                        if (playerObject.position.x > 3.0f)
                         {
-                            playerObject.position += Vector3.right * -4.0f;
+                            playerObject.position += Vector3.right * -6.0f;
                         }
                         playerObject.strafeTimeout -= deltaTime;
                         if (playerObject.strafeTimeout <= 0.0f)
@@ -457,13 +462,13 @@ public class Location
                                 enemyX = objects.First.Value.position.x;
                             }
                             deltaX = playerX - enemyX;
-                            if (deltaX > 2.0f)
+                            if (deltaX > 3.0f)
                             {
-                                deltaX += -4.0f;
+                                deltaX += -6.0f;
                             }
-                            if (deltaX < -2.0f)
+                            if (deltaX < -3.0f)
                             {
-                                deltaX += 4.0f;
+                                deltaX += 6.0f;
                             }
                             if ((deltaX > 0.0f && playerObject.direction > 0.0f) || (deltaX < 0.0f && playerObject.direction < 0.0f))
                             {
@@ -891,7 +896,10 @@ public class Location
 
     public void GameOver(int winner)
     {
-        network.RpcGameOver(winner);
+        if (!network.isLocal)
+        {
+            network.RpcGameOver(winner);
+        }
         network.GameOver(winner);
         network = null;
     }

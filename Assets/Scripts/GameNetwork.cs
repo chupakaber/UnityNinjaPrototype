@@ -28,9 +28,11 @@ public class GameNetwork : NetworkBehaviour {
     public GameObject[] missilePrefabs;
     public GameObject floatNotifyPrefab;
     public GameObject fixedNotifyPrefab;
+    public GameObject swipeTrailPrefab;
     public GameMatchMaker gameMatchMaker;
     public ScreenEffectsController screenEffects;
     public ArmedMissileController armedMissile;
+    public SwipeTrailController swipeTrail = null;
     public AbilityButtonController abilityActiveButton;
     public AbilityButtonController abilityPassiveButton;
     public Image staminaBar;
@@ -407,9 +409,12 @@ public class GameNetwork : NetworkBehaviour {
         location.Cleanup();
         if (isServer)
         {
-            NetManager.singleton.matchMaker.DestroyMatch(NetManager.singleton.matchInfo.networkId, 0, null);
-            //NetManager.singleton.StopHost();
-            //NetManager.singleton.StopServer();
+            if (!isLocal)
+            {
+                NetManager.singleton.matchMaker.DestroyMatch(NetManager.singleton.matchInfo.networkId, 0, null);
+                //NetManager.singleton.StopHost();
+                //NetManager.singleton.StopServer();
+            }
         }
         else
         {
@@ -418,6 +423,10 @@ public class GameNetwork : NetworkBehaviour {
         LocationObject.lastObjectId = 0;
         gameMatchMaker.canvasPlay.enabled = false;
         gameMatchMaker.canvasConnect.enabled = true;
+        if (isLocal)
+        {
+            Destroy(gameObject);
+        }
     }
 
     void Start ()
@@ -618,16 +627,19 @@ public class GameNetwork : NetworkBehaviour {
                 location.PhysicCycle(Time.deltaTime);
             }
         }
+        /*
     }
 
     void OnGUI ()
     {
+        */
         float angle = 0.0f;
         float power = 0.0f;
         float mouseX = Input.mousePosition.x / (float)Screen.width;
         float mouseY = 1.0f - Input.mousePosition.y / (float)Screen.height;
         float touchX = 0.0f;
         float touchY = 0.0f;
+        Vector3 position = Vector3.zero;
 #if !UNITY_STANDALONE
         Touch touch;
         if (Input.touchCount > 0)
@@ -635,10 +647,17 @@ public class GameNetwork : NetworkBehaviour {
             touch = Input.GetTouch(0);
             touchX = touch.position.x / (float)Screen.width;
             touchY = 1.0f - touch.position.y / (float)Screen.height;
-            if (touchX > 0.25f && touchX < 0.75f && touchY > 0.8f && touchY < 1.0f)
+            position = (camera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, 0.1f)) - camera.transform.position);
+            if (throwState != ThrowState.TOUCHED && touchX > 0.25f && touchX < 0.75f && touchY > 0.8f && touchY < 1.0f)
             {
                 throwState = ThrowState.TOUCHED;
+                swipeTrail = ((GameObject)GameObject.Instantiate(swipeTrailPrefab, position, Quaternion.identity)).GetComponent<SwipeTrailController>();
+                swipeTrail.transform.parent = camera.transform;
+                swipeTrail.transform.localPosition = Vector3.zero;
             }
+            swipeTrail.lineRenderer.SetVertexCount(swipeTrail.pointsCount);
+            swipeTrail.lineRenderer.SetPosition(swipeTrail.pointsCount - 1, position);
+            swipeTrail.pointsCount++;
             lastTouchX = touchX;
             lastTouchY = touchY;
             if (throwState == ThrowState.TOUCHED)
@@ -658,8 +677,13 @@ public class GameNetwork : NetworkBehaviour {
 #else
         if (Input.GetMouseButtonDown(0))
         {
+            position = (camera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, 0.1f)) - camera.transform.position);
             if (throwState != ThrowState.TOUCHED)
             {
+                swipeTrail = ((GameObject)GameObject.Instantiate(swipeTrailPrefab, position, Quaternion.identity)).GetComponent<SwipeTrailController>();
+                swipeTrail.transform.parent = camera.transform;
+                swipeTrail.transform.localPosition = Vector3.zero;
+                swipeTrail.lineRenderer.SetPosition(0, position);
                 //if (mouseX > 0.25f && mouseX < 0.75f && mouseY > 0.8f && mouseY < 1.0f)
                 //{
                 throwState = ThrowState.TOUCHED;
@@ -670,6 +694,13 @@ public class GameNetwork : NetworkBehaviour {
         {
             lastTouchX = mouseX;
             lastTouchY = mouseY;
+            if (swipeTrail != null)
+            {
+                position = (camera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, 0.1f)) - camera.transform.position);
+                swipeTrail.pointsCount++;
+                swipeTrail.lineRenderer.SetVertexCount(swipeTrail.pointsCount);
+                swipeTrail.lineRenderer.SetPosition(swipeTrail.pointsCount - 1, position);
+            }
         }
         if (Input.GetMouseButtonUp(0))
         {
@@ -720,9 +751,9 @@ public class GameNetwork : NetworkBehaviour {
                 missileController.gameNetwork = this;
                 missileObject = new MissileObject();
                 missileObject.position = new Vector3(playerLocationObject.position.x, 0.2f, 0.1f);
-                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(1.0f, angle.y)) * 0.1f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
+                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(0.5f, angle.y)) * 0.1f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
                 missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
-                missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
+                //missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
                 missileObject.torsion = new Vector3(0.0f, torsion, 0.0f);
                 if (isServer)
                 {

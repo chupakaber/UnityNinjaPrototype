@@ -105,13 +105,23 @@ public class GameNetwork : NetworkBehaviour {
                     MissileController missileController = null;
                     MissileObject missileObject = new MissileObject();
                     missileObject.id = id;
-                    missileObject.position = new Vector3(newPosition.x, -newPosition.y, newPosition.z);
-                    missileObject.scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
+                    if (Mathf.Abs(newPosition.z) < 0.1f)
+                    {
+                        missileObject.position = armedMissile.transform.position;
+                    }
+                    else
+                    {
+                        missileObject.position = new Vector3(newPosition.x, newPosition.y, -newPosition.z);
+                    }
+                    missileObject.scale = newScale;
                     missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
                     missileController.obj = missileObject;
                     missileObject.visualObject = missileController;
-                    missileController.transform.position = new Vector3(missileObject.position.x, missileObject.position.y * 0.8f, missileObject.position.y);
-                    missileController.transform.localScale = new Vector3(missileObject.scale, missileObject.scale, 1.0f);
+                    missileController.transform.position = missileObject.position;
+                    if (Mathf.Abs(newPosition.z) < 0.1f)
+                    {
+                        missileController.transform.rotation = armedMissile.transform.rotation;
+                    }
                     location.AddObject(missileObject);
                     break;
             }
@@ -284,6 +294,7 @@ public class GameNetwork : NetworkBehaviour {
     {
         if (floating)
         {
+            float distanceScale = 1.0f;
             FloatingNotifyController floatingNotify = GameObject.Instantiate(floatNotifyPrefab).GetComponent<FloatingNotifyController>();
             switch (color)
             {
@@ -301,7 +312,8 @@ public class GameNetwork : NetworkBehaviour {
                     PlayerObject playerObject = (PlayerObject)location.GetObject(target);
                     if (playerObject != null && playerObject.visualObject != null)
                     {
-                        floatingNotify.transform.position = playerObject.visualObject.transform.position + Vector3.right * 0.2f + Vector3.forward * -1.0f + Vector3.up * -0.05f * offset;
+                        floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(playerObject.visualObject.transform.position.z, 0.5f);
+                        floatingNotify.transform.position = playerObject.visualObject.transform.position + Vector3.right * 0.2f + Vector3.forward * -1.0f + Vector3.up * -0.01f * offset * (1.0f + playerObject.visualObject.transform.position.z * 2.0f);
                     }
                 }
             }
@@ -683,6 +695,7 @@ public class GameNetwork : NetworkBehaviour {
         {
             SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
         }
+        throwState = ThrowState.NONE;
     }
 
     public void Throw(int player, Vector2 angle, float torsion, float speed)
@@ -706,11 +719,11 @@ public class GameNetwork : NetworkBehaviour {
                 missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
                 missileController.gameNetwork = this;
                 missileObject = new MissileObject();
-                missileObject.position = new Vector3(playerLocationObject.position.x, -1.0f, 0.1f);
-                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, Mathf.Max(0.5f, 1.0f - angle.y)), Mathf.Min(0.5f, Math.Max(0.0f, speed / 5.0f)))).normalized;
+                missileObject.position = new Vector3(playerLocationObject.position.x, 0.2f, 0.1f);
+                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(1.0f, angle.y)) * 0.1f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
                 missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
                 missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
-                missileObject.torsion = new Vector3(0.0f, torsion * 45.0f, 0.0f);
+                missileObject.torsion = new Vector3(0.0f, torsion, 0.0f);
                 if (isServer)
                 {
                     if (player == 0)
@@ -725,7 +738,7 @@ public class GameNetwork : NetworkBehaviour {
                         }
                     }
                 }
-                missileObject.velocity = Mathf.Min(1.2f, Mathf.Max(0.8f, speed)) * 4.0f;
+                missileObject.velocity = Mathf.Min(1.2f, Mathf.Max(0.8f, speed)) * 8.0f;
                 missileController.obj = missileObject;
                 location.AddObject(missileObject);
                 missileController.transform.position = missileObject.position;
@@ -765,7 +778,7 @@ public class GameNetwork : NetworkBehaviour {
         ObstructionObject obstructionObject;
 
         playerObject = new PlayerObject();
-        playerObject.position = new Vector3(0.0f, 0.25f, 0.75f);
+        playerObject.position = new Vector3(0.0f, 0.0f, 5.0f);
         playerObject.direction = 1.0f;
         playerObject.strafeMinTimeout = 0.9f;
         playerObject.strafeMaxTimeout = 2.2f;
@@ -806,7 +819,7 @@ public class GameNetwork : NetworkBehaviour {
         playerController = (Instantiate(bodyPrefabs[0])).GetComponent<PlayerController>();
         playerController.gameNetwork = this;
         playerObject = new PlayerObject();
-        playerObject.position = new Vector3(0.0f, 0.25f, 0.75f);
+        playerObject.position = new Vector3(0.0f, 0.0f, 5.0f);
         playerObject.direction = 1.0f;
         playerObject.strafeMinTimeout = 0.9f;
         playerObject.strafeMaxTimeout = 2.2f;
@@ -862,7 +875,7 @@ public class GameNetwork : NetworkBehaviour {
             obstructionController = (Instantiate(obstructionPrefabs[visualId])).GetComponent<ObstructionController>();
             obstructionController.gameNetwork = this;
             obstructionObject = new ObstructionObject();
-            obstructionObject.position = new Vector3(((float)(i - 2)) + UnityEngine.Random.Range(0.01f, 0.9f), UnityEngine.Random.Range(-0.22f, 0.0f), 0.5f);
+            obstructionObject.position = new Vector3(((float)(i - 2)) + UnityEngine.Random.Range(0.01f, 0.9f), 0.0f, UnityEngine.Random.Range(1.2f, 2.5f));
             switch(visualId)
             {
                 case 0:
@@ -872,7 +885,7 @@ public class GameNetwork : NetworkBehaviour {
                 case 1:
                     obstructionObject.scale = 0.1f;
                     obstructionObject.durability = 1000.0f;
-                    obstructionObject.position.y = -0.24f;
+                    obstructionObject.position.z = 1.2f;
                     break;
                 case 3:
                     obstructionObject.scale = 0.18f;
@@ -890,7 +903,7 @@ public class GameNetwork : NetworkBehaviour {
             obstructionController = (Instantiate(obstructionPrefabs[visualId])).GetComponent<ObstructionController>();
             obstructionController.gameNetwork = this;
             obstructionObject = new ObstructionObject();
-            obstructionObject.position = new Vector3(((float)(i - 2)) * 0.66f + UnityEngine.Random.Range(0.05f, 0.6f), UnityEngine.Random.Range(-0.22f, 0.0f), 0.5f);
+            obstructionObject.position = new Vector3(((float)(i - 2)) * 0.66f + UnityEngine.Random.Range(0.05f, 0.6f), 0.0f, UnityEngine.Random.Range(1.2f, 2.5f));
             switch (visualId)
             {
                 case 2:

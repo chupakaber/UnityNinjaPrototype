@@ -50,6 +50,7 @@ public class SwipeController
 
     public bool active = true;
     public bool started = false;
+    public bool locked = false;
     public LinkedList<SwipePoint> pointsList = new LinkedList<SwipePoint>();
 
     private Vector2 direction = Vector2.zero;
@@ -65,15 +66,21 @@ public class SwipeController
             int i = 0;
             float length = 0.0f;
             float duration = 0.0f;
+            /*
             float beginX = 0.0f;
             float beginY = 0.0f;
+            */
             float endX = 0.0f;
             float endY = 0.0f;
+            float fullX = 0.0f;
+            float fullY = 0.0f;
             Vector2 v2Delta = Vector2.zero;
             LinkedListNode<SwipePoint> prevPointNode = null;
             LinkedListNode<SwipePoint> pointNode = null;
+            LinkedListNode<SwipePoint> pointNodeNext = null;
             if (!started && !touched)
             {
+                locked = false;
                 return;
             }
             if (started || (touched && newPoint.x > 0.25 && newPoint.x < 0.75 && newPoint.y > 0.8))
@@ -87,6 +94,7 @@ public class SwipeController
             pointNode = pointsList.First;
             while (pointNode != null)
             {
+                pointNodeNext = pointNode.Next;
                 if (prevPointNode != null)
                 {
                     v2Delta = pointNode.Value.point - prevPointNode.Value.point;
@@ -100,6 +108,7 @@ public class SwipeController
                 {
                     length += v2Delta.magnitude;
                     duration += pointNode.Value.duration;
+                    /*
                     if (i < pointsList.Count * 3 / 4)
                     {
                         beginX += v2Delta.x;
@@ -110,24 +119,56 @@ public class SwipeController
                         endX += v2Delta.x;
                         endY += v2Delta.y;
                     }
+                    */
+                    if (i >= pointsList.Count * 3 / 4)
+                    {
+                        endX += v2Delta.x;
+                        endY += v2Delta.y;
+                    }
+                    fullX += v2Delta.x;
+                    fullY += v2Delta.y;
+                }
+                if (v2Delta.y < 0.0f && locked)
+                {
+                    pointsList.Clear();
+                    locked = false;
+                    started = false;
+                    pointNodeNext = null;
                 }
                 i++;
                 prevPointNode = pointNode;
-                pointNode = pointNode.Next;
+                pointNode = pointNodeNext;
             }
-            if (started && pointsList.Count > 3 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (pointsList.Last.Previous.Value.point - newPoint).magnitude / newDuration < length / duration * 0.1f))))
+            //if (started && !locked && pointsList.Count > 10 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (pointsList.Last.Previous.Value.point - newPoint).magnitude / newDuration < length / duration * 0.1f))))
+            if (started && !locked && pointsList.Count > 10 && length > minLength && fullY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f)))))
             {
+                // Угол броска по горизонтали не больше 45 градусов от прямого направления
+                if (Mathf.Abs(fullX) > Mathf.Abs(fullY))
+                {
+                    fullX =  fullX / Mathf.Abs(fullX) * Mathf.Abs(fullY);
+                }
+                v2Delta.x = fullX;
+                v2Delta.y = fullY;
+                v2Delta.Normalize();
                 SwipeEventArgs eventArgs = new SwipeEventArgs();
+                /*
                 eventArgs.angle = new Vector2(Mathf.Atan(beginX / beginY) * 180.0f / Mathf.PI, length / maxLength);
                 eventArgs.torsion = Vector2.Angle(new Vector2(endX, endY), new Vector2(beginX, beginY)) / 30.0f * Mathf.Max(0.0f, Mathf.Min(1.0f, duration / 0.4f));
                 if (endX < beginX)
                 {
                     eventArgs.torsion *= -1.0f;
                 }
+                */
+                if (Mathf.Abs(v2Delta.x) * 4.0f > Mathf.Abs(v2Delta.y))
+                {
+                    eventArgs.torsion = -v2Delta.x / Mathf.Abs(v2Delta.x) * 90.0f * (Mathf.Abs(v2Delta.x) * 4.0f - Mathf.Abs(v2Delta.y)) / 2.0f; // 2.0f - Высчитать коефициент в зависимости от времени полета (обратно пропорционально скорости) и угла между 30 и 45 градусами отклонения
+                }
+                eventArgs.angle = new Vector2(Mathf.Atan(v2Delta.x / v2Delta.y) * 180.0f / Mathf.PI, length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.6f);
                 eventArgs.speed = Mathf.Sqrt(0.2f / duration);
                 InvokeAction(eventArgs);
                 touched = false;
                 started = true;
+                locked = true;
             }
             if ((!touched && started) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point - newPoint).y < 0.0f))
             {
@@ -345,10 +386,10 @@ public class Location
                         missileObject = (MissileObject)objNode.Value;
                         if (missileObject.visualObject != null)
                         {
-                            v3Delta = new Vector3(missileObject.position.x, missileObject.position.z * 0.2f + missileObject.position.y * 0.35f, missileObject.position.y) - missileObject.visualObject.transform.position;
+                            v3Delta = missileObject.position - missileObject.visualObject.transform.position;
                             missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 5.0f);
-                            scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
-                            missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
+                            //scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
+                            //missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
                         }
                         break;
                 }
@@ -513,7 +554,7 @@ public class Location
                     case ObjectType.MISSILE:
                         missileObject = (MissileObject)objNode.Value;
                         missileObject.direction = Quaternion.Euler(missileObject.torsion.x * deltaTime, missileObject.torsion.y * deltaTime, missileObject.torsion.z * deltaTime) * missileObject.direction;
-                        missileObject.direction.z += -0.98f * 0.5f * deltaTime;
+                        missileObject.direction.y += -0.98f * 0.4f * deltaTime;
                         missileObject.direction.Normalize();
                         missileObject.position.x += missileObject.passiveVelocity.x * deltaTime;
                         missileObject.position.y += missileObject.passiveVelocity.y * deltaTime;
@@ -521,8 +562,8 @@ public class Location
                         missileObject.position.x += missileObject.direction.x * missileObject.velocity * deltaTime;
                         missileObject.position.y += missileObject.direction.y * missileObject.velocity * deltaTime;
                         missileObject.position.z += missileObject.direction.z * missileObject.velocity * deltaTime;
-                        Debug.Log("missileObject position: " + missileObject.position);
-                        if (missileObject.position.z <= 0.0f)
+                        //Debug.Log("missileObject position: " + missileObject.position);
+                        if (missileObject.position.y <= 0.0f)
                         {
                             Debug.Log("missileObject DESTROY by position.z");
                             if (missileObject.visualObject != null)
@@ -531,7 +572,7 @@ public class Location
                             }
                             RemoveObject(objNode.Value);
                         }
-                        else if (missileObject.position.y > 0.7f && missileObject.position.y - missileObject.direction.y * missileObject.velocity * deltaTime <= 0.7f)
+                        else if (missileObject.position.z > 2.5f && missileObject.position.z - missileObject.direction.z * missileObject.velocity * deltaTime <= 2.5f)
                         {
                             objNode2 = objects.First;
                             while (objNode2 != null)
@@ -633,7 +674,7 @@ public class Location
                                 objNode2 = objNodeNext2;
                             }
                         }
-                        else if ((missileObject.direction.y > 0.0f && missileObject.position.y >= 2.0f) || (missileObject.direction.y < 0.0f && missileObject.position.y <= -2.0f))
+                        else if ((missileObject.direction.z > 0.0f && missileObject.position.z >= 5.0f) || (missileObject.direction.z < 0.0f && missileObject.position.z <= -5.0f))
                         {
                             objNode2 = objects.First;
                             while (objNode2 != null)
@@ -647,12 +688,12 @@ public class Location
                                             playerObject = (PlayerObject)objNode2.Value;
                                             attackerObject = null;
                                             hit = false;
-                                            if (missileObject.direction.y > 0.0f && playerObject.id == 1 && Mathf.Abs(missileObject.position.x - playerObject.position.x) < 0.25f)
+                                            if (missileObject.direction.z > 0.0f && playerObject.id == 1 && Mathf.Abs(missileObject.position.x - playerObject.position.x) < 0.3f)
                                             {
                                                 hit = true;
                                                 attackerObject = (PlayerObject)objects.First.Value;
                                             }
-                                            else if (missileObject.direction.y < 0.0f && playerObject.id == 0 && Mathf.Abs(missileObject.position.x - playerObject.position.x) < 0.25f)
+                                            else if (missileObject.direction.z < 0.0f && playerObject.id == 0 && Mathf.Abs(missileObject.position.x - playerObject.position.x) < 0.3f)
                                             {
                                                 hit = true;
                                                 attackerObject = (PlayerObject)objects.First.Next.Value;

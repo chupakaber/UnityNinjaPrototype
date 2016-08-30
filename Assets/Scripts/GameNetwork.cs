@@ -35,6 +35,7 @@ public class GameNetwork : NetworkBehaviour {
     public SwipeTrailController swipeTrail = null;
     public AbilityButtonController abilityActiveButton;
     public AbilityButtonController abilityPassiveButton;
+    public Button switchSwipeTypeButton;
     public Image staminaBar;
     public Text healthBarSelf;
     public Text healthBarEnemy;
@@ -49,6 +50,7 @@ public class GameNetwork : NetworkBehaviour {
     public float lastTouchX = 0.0f;
     public float lastTouchY = 0.0f;
 
+    public int swipeType = 1;
     public ThrowState throwState = ThrowState.NONE;
 
     public new bool isServer {
@@ -446,6 +448,15 @@ public class GameNetwork : NetworkBehaviour {
         healthBarEnemy = GameObject.Find("HealthValueEnemy").GetComponent<Text>();
         abilityActiveButton = GameObject.Find("AbilityActiveButton").GetComponent<AbilityButtonController>();
         abilityPassiveButton = GameObject.Find("AbilityPassiveButton").GetComponent<AbilityButtonController>();
+        switchSwipeTypeButton = GameObject.Find("SwitchSwipeType").GetComponent<Button>();
+        switchSwipeTypeButton.onClick.AddListener(delegate() {
+            swipeController.swipeType++;
+            if(swipeController.swipeType > 2)
+            {
+                swipeController.swipeType = 1;
+            }
+            switchSwipeTypeButton.GetComponentInChildren<Text>().text = "РЕЖИМ\nСВАЙПА\n#" + swipeController.swipeType;
+        });
         swipeController.OnInvokeAction += OnThrow;
         if (!isServer)
         {

@@ -45,8 +45,9 @@ public class SwipePoint
 public class SwipeController
 {
 
-    public float minLength = 0.1f;
+    public float minLength = 0.025f;
     public float maxLength = 0.5f;
+    public int swipeType = 1;
 
     public bool active = true;
     public bool started = false;
@@ -74,6 +75,12 @@ public class SwipeController
             float endY = 0.0f;
             float fullX = 0.0f;
             float fullY = 0.0f;
+            int startPointCount = 0;
+            float startPointX = 0.0f;
+            float startPointY = 0.0f;
+            int endPointCount = 0;
+            float endPointX = 0.0f;
+            float endPointY = 0.0f;
             Vector2 v2Delta = Vector2.zero;
             LinkedListNode<SwipePoint> prevPointNode = null;
             LinkedListNode<SwipePoint> pointNode = null;
@@ -83,7 +90,7 @@ public class SwipeController
                 locked = false;
                 return;
             }
-            if (started || (touched && newPoint.x > 0.25 && newPoint.x < 0.75 && newPoint.y > 0.8))
+            if (started || (touched && newPoint.x > 0.25f && newPoint.x < 0.75f && newPoint.y > 0.75f))
             {
                 if (!started)
                 {
@@ -131,6 +138,21 @@ public class SwipeController
                     {
                         fullX += v2Delta.x;
                         fullY += v2Delta.y;
+                        if (swipeType == 2)
+                        {
+                            if (i <= pointsList.Count / 3)
+                            {
+                                startPointCount++;
+                                startPointX += pointNode.Value.point.x;
+                                startPointY += pointNode.Value.point.y;
+                            }
+                            else if (i >= pointsList.Count * 2 / 3)
+                            {
+                                endPointCount++;
+                                endPointX += pointNode.Value.point.x;
+                                endPointY += pointNode.Value.point.y;
+                            }
+                        }
                     }
                 }
                 if (v2Delta.y < 0.0f && locked)
@@ -144,13 +166,26 @@ public class SwipeController
                 prevPointNode = pointNode;
                 pointNode = pointNodeNext;
             }
+            if (swipeType == 2)
+            {
+                if (startPointCount > 0 && endPointCount > 0)
+                {
+                    fullX = endPointX / (float)endPointCount - startPointX / (float)startPointCount;
+                    fullY = (endPointY / (float)endPointCount - startPointY / (float)startPointCount) * -1.0f;
+                }
+                else
+                {
+                    fullX = 0.0f;
+                    fullY = 0.0f;
+                }
+            }
             //if (started && !locked && pointsList.Count > 10 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (pointsList.Last.Previous.Value.point - newPoint).magnitude / newDuration < length / duration * 0.1f))))
-            if (started && !locked && pointsList.Count > 6 && length > minLength && fullY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f)))))
+            if (started && !locked && pointsList.Count > 2 && length > minLength && fullY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f)))))
             {
                 // Угол броска по горизонтали не больше 45 градусов от прямого направления
                 if (Mathf.Abs(fullX) > Mathf.Abs(fullY))
                 {
-                    fullX =  fullX / Mathf.Abs(fullX) * Mathf.Abs(fullY);
+                    fullX = fullX / Mathf.Abs(fullX) * Mathf.Abs(fullY);
                 }
                 v2Delta.x = fullX;
                 v2Delta.y = fullY;
@@ -313,7 +348,6 @@ public class Location
             objNodeNext = objNode.Next;
             if (objNode.Value != null)
             {
-                ////Debug.Log("UpdateObject: " + objNode.Value.id);
                 switch (objNode.Value.objectType)
                 {
                     case ObjectType.PLAYER:

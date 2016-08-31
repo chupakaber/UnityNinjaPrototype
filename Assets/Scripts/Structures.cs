@@ -203,7 +203,7 @@ public class SwipeController
                 {
                     eventArgs.torsion = -v2Delta.x / Mathf.Abs(v2Delta.x) * 90.0f * (Mathf.Abs(v2Delta.x) * 4.0f - Mathf.Abs(v2Delta.y)) / 2.0f; // 2.0f - Высчитать коефициент в зависимости от времени полета (обратно пропорционально скорости) и угла между 30 и 45 градусами отклонения
                 }
-                eventArgs.angle = new Vector2(Mathf.Atan(v2Delta.x / v2Delta.y) * 180.0f / Mathf.PI, length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.4f);
+                eventArgs.angle = new Vector2(Mathf.Atan(v2Delta.x / v2Delta.y) * 180.0f / Mathf.PI, length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.1f);
                 eventArgs.speed = Mathf.Sqrt(0.2f / duration);
                 InvokeAction(eventArgs);
                 touched = false;
@@ -318,7 +318,7 @@ public class Location
         objects.AddLast(obj);
         if (network.isServer && !network.isLocal)
         {
-            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.scale, obj.visualId);
+            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.torsion.y, obj.visualId);
         }
     }
 
@@ -593,7 +593,7 @@ public class Location
                     case ObjectType.MISSILE:
                         missileObject = (MissileObject)objNode.Value;
                         missileObject.direction = Quaternion.Euler(missileObject.torsion.x * deltaTime, missileObject.torsion.y * deltaTime, missileObject.torsion.z * deltaTime) * missileObject.direction;
-                        missileObject.direction.y += -0.98f * 0.4f * deltaTime;
+                        missileObject.direction.y += -0.98f * 0.45f * deltaTime;
                         missileObject.direction.Normalize();
                         missileObject.position.x += missileObject.passiveVelocity.x * deltaTime;
                         missileObject.position.y += missileObject.passiveVelocity.y * deltaTime;

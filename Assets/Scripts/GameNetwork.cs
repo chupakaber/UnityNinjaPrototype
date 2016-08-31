@@ -50,7 +50,7 @@ public class GameNetwork : NetworkBehaviour {
     public float lastTouchX = 0.0f;
     public float lastTouchY = 0.0f;
 
-    public int swipeType = 1;
+    public int swipeType = 2;
     public ThrowState throwState = ThrowState.NONE;
 
     public new bool isServer {
@@ -66,7 +66,7 @@ public class GameNetwork : NetworkBehaviour {
     }
 
     [ClientRpc]
-    public void RpcSpawnObject(int id, Location.ObjectType objectType, Vector3 newPosition, float newScale, int visualId)
+    public void RpcSpawnObject(int id, Location.ObjectType objectType, Vector3 newPosition, float newFloat, int visualId)
     {
         if (!isServer)
         {
@@ -79,7 +79,7 @@ public class GameNetwork : NetworkBehaviour {
                     playerObject = new PlayerObject();
                     playerObject.id = id;
                     playerObject.position = newPosition;
-                    playerObject.scale = newScale;
+                    playerObject.scale = newFloat;
                     playerObject.health = 100.0f;
                     playerObject.direction = 1.0f;
                     if (id == 0)
@@ -97,7 +97,7 @@ public class GameNetwork : NetworkBehaviour {
                     ObstructionObject obstructionObject = new ObstructionObject();
                     obstructionObject.id = id;
                     obstructionObject.position = newPosition;
-                    obstructionObject.scale = newScale;
+                    obstructionObject.scale = newFloat;
                     obstructionObject.visualId = visualId;
                     obstructionController = (Instantiate(obstructionPrefabs[obstructionObject.visualId])).GetComponent<ObstructionController>();
                     obstructionController.obj = obstructionObject;
@@ -117,9 +117,10 @@ public class GameNetwork : NetworkBehaviour {
                     {
                         missileObject.position = new Vector3(newPosition.x, newPosition.y, -newPosition.z);
                     }
-                    missileObject.scale = newScale;
+                    missileObject.scale = newFloat;
                     missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
                     missileController.obj = missileObject;
+                    missileController.torsion = newFloat;
                     missileObject.visualObject = missileController;
                     missileController.transform.position = missileObject.position;
                     if (Mathf.Abs(newPosition.z) < 0.1f)
@@ -761,8 +762,8 @@ public class GameNetwork : NetworkBehaviour {
                 missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
                 missileController.gameNetwork = this;
                 missileObject = new MissileObject();
-                missileObject.position = new Vector3(playerLocationObject.position.x, 0.2f, 0.1f);
-                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(0.5f, angle.y)) * 0.1f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
+                missileObject.position = new Vector3(playerLocationObject.position.x, 0.2f + angle.y * 0.2f, 0.1f);
+                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(0.5f, angle.y)) * 0.09f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
                 missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
                 //missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
                 missileObject.torsion = new Vector3(0.0f, torsion, 0.0f);
@@ -782,6 +783,7 @@ public class GameNetwork : NetworkBehaviour {
                 }
                 missileObject.velocity = Mathf.Min(1.2f, Mathf.Max(0.8f, speed)) * 8.0f;
                 missileController.obj = missileObject;
+                missileController.torsion = missileObject.torsion.y;
                 location.AddObject(missileObject);
                 missileController.transform.position = missileObject.position;
             }

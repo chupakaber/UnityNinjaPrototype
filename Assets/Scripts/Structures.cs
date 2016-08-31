@@ -379,6 +379,14 @@ public class Location
                                 v3Delta = Vector3.right * (playerObject.position.x * 1.0f - playerObject.visualObject.transform.position.x);
                             }
                             playerObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
+                            if(v3Delta.x > 0.0f)
+                            {
+                                playerObject.visualObject.Animate(0);
+                            }
+                            else
+                            {
+                                playerObject.visualObject.Animate(1);
+                            }
                         }
                         else
                         {

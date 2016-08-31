@@ -6,7 +6,10 @@ public class PlayerController : MonoBehaviour {
     public GameNetwork gameNetwork;
     public PlayerObject obj = null;
     public SpriteRenderer spriteRenderer;
+    public Animator animator;
 
+    private int lastAnimId = 0;
+    private int animate = 0;
     private float flashCooldown = 0.0f;
 
 	void Start () {
@@ -35,12 +38,41 @@ public class PlayerController : MonoBehaviour {
                 flashCooldown = 0.0f;
             }
         }
+        if(animate > 0)
+        {
+            animate--;
+            if (animate == 0)
+            {
+                animator.SetBool("animate", false);
+            }
+        }
 
     }
 
     public void Flash()
     {
         flashCooldown = 0.25f;
+    }
+
+    public void Animate(int id)
+    {
+        if (lastAnimId != id)
+        {
+            lastAnimId = id;
+            switch (id)
+            {
+                case 0:
+                    animator.SetBool("walk_right", true);
+                    Debug.Log("Animate: right");
+                    break;
+                case 1:
+                    animator.SetBool("walk_right", false);
+                    Debug.Log("Animate: left");
+                    break;
+            }
+            animator.SetBool("animate", true);
+            animate = 2;
+        }
     }
 
 }

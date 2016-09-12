@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Networking.Match;
 using UnityEngine.Networking.Types;
@@ -7,8 +7,11 @@ using UnityEngine.UI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using ExitGames;
+using ExitGames.Client;
+using ExitGames.Client.Photon;
 
-public class GameMatchMaker : NetworkBehaviour
+public class GameMatchMaker : Photon.PunBehaviour
 {
 
     public GameObject gameNetworkPrefab;
@@ -64,10 +67,47 @@ public class GameMatchMaker : NetworkBehaviour
     public InputField preferenceFieldInjureLegEffect;
     public InputField preferenceFieldStrafeSpeed;
 
+    private bool tryOpenRoom = false;
+
+    private Dictionary<int, string> langNotices = new Dictionary<int, string>();
+
+    public override void OnConnectedToMaster()
+    {
+        Debug.Log("CONNECTED!");
+        TypedLobby lobby = new TypedLobby();
+        if (tryOpenRoom)
+        {
+            if (PhotonNetwork.CreateRoom(roomIdField.text))
+            {
+                Debug.Log("Room created!");
+            }
+            else
+            {
+                Debug.LogError("Can't create room");
+            }
+        }
+        else
+        {
+            if (PhotonNetwork.JoinRoom(roomIdField.text))
+            {
+                Debug.Log("Room joined!");
+            }
+            else
+            {
+                Debug.LogError("Can't join room");
+            }
+        }
+    }
+
+    public override void OnJoinedRoom()
+    {
+        Debug.Log("OnJoinedRoom: " + PhotonNetwork.networkingPeer.CurrentRoom.name);
+    }
+
     void Start()
     {
         Application.runInBackground = true;
-        NetManager.singleton.StartMatchMaker();
+        //NetManager.singleton.StartMatchMaker();
         canvasConnect.enabled = true;
         canvasPlay.enabled = false;
         canvasSettings.enabled = false;
@@ -82,12 +122,47 @@ public class GameMatchMaker : NetworkBehaviour
             }
         });
         startButton.onClick.AddListener(delegate() {
-            CreateInternetMatch(roomIdField.text);
-            canvasConnect.enabled = false;
+            PhotonNetwork.logLevel = PhotonLogLevel.ErrorsOnly;
+            //PhotonNetwork.logLevel = PhotonLogLevel.Full;
+            PhotonNetwork.OnEventCall += OnEvent;
+            Debug.Log("Connecting to Photon Server start #1");
+            if (PhotonNetwork.ConnectUsingSettings("1.0"))
+            {
+                Debug.Log("Connecting to Photon Server process... #1");
+                UpdatePreferences();
+                gameNetwork = GameObject.Instantiate(gameNetworkPrefab).GetComponent<GameNetwork>();
+                gameNetwork.camera = camera;
+                gameNetwork.gameMatchMaker = this;
+                gameNetwork.isServer = false;
+                gameNetwork.isLocal = false;
+                canvasConnect.enabled = false;
+                tryOpenRoom = true;
+            }
+            else
+            {
+                Debug.LogError("Connection to Photon Server failed");
+            }
+            //CreateInternetMatch(roomIdField.text);
         });
         joinButton.onClick.AddListener(delegate () {
-            FindInternetMatch(roomIdField.text);
-            canvasConnect.enabled = false;
+            Debug.Log("Connecting to Photon Server start #2");
+            if (PhotonNetwork.ConnectUsingSettings("1.0"))
+            {
+                Debug.Log("Connecting to Photon Server process... #2");
+                gameNetwork = GameObject.Instantiate(gameNetworkPrefab).GetComponent<GameNetwork>();
+                gameNetwork.camera = camera;
+                gameNetwork.gameMatchMaker = this;
+                gameNetwork.isServer = false;
+                gameNetwork.isLocal = false;
+                canvasConnect.enabled = false;
+                tryOpenRoom = false;
+            }
+            else
+            {
+                Debug.LogError("Connection to Photon Server failed");
+            }
+            //FindInternetMatch(roomIdField.text);
+            //canvasConnect.enabled = false;
         });
         startLocalButton.onClick.AddListener(delegate () {
             UpdatePreferences();
@@ -96,7 +171,115 @@ public class GameMatchMaker : NetworkBehaviour
             gameNetwork.gameMatchMaker = this;
             gameNetwork.isLocal = true;
         });
-        ((NetManager)NetManager.singleton).ServerConnect += OnServerConnect;
+        //((NetManager)NetManager.singleton).ServerConnect += OnServerConnect;
+
+
+
+
+        langNotices.Add(0, "");
+        langNotices.Add(1, "К");
+        langNotices.Add(2, "Щ");
+        langNotices.Add(3, "ЩИТ");
+        langNotices.Add(4, "УКЛОНЕНИЕ");
+        langNotices.Add(5, "ОГЛУШЕН");
+        langNotices.Add(6, "РУКА");
+        langNotices.Add(7, "НОГА");
+        langNotices.Add(8, "ОГЛУШЕНИЕ");
+
+
+    }
+
+    void OnEvent(byte eventCode, object content, int senderId)
+    {
+        BaseObjectMessage baseObjectMessage;
+        //Debug.Log("RECEIVE EVENT[" + eventCode + "] from [" + senderId + "]");
+        switch (eventCode)
+        {
+            case 1:
+                string data = (string)content;
+                gameNetwork.ClientInit();
+                canvasPlay.enabled = true;
+                PhotonNetwork.networkingPeer.OpCustom((byte)1, new Dictionary<byte, object> { { 100, "CLIENT_JOINED" } }, true);
+                break;
+            case 2:
+                SpawnObjectMessage spawnObjectMessage = new SpawnObjectMessage();
+                spawnObjectMessage.Unpack((byte[])content);
+                Debug.Log(Time.fixedTime + " Spawn." + spawnObjectMessage.objectType + " [" + spawnObjectMessage.id + "]");
+                gameNetwork.RpcSpawnObject(spawnObjectMessage.id, spawnObjectMessage.objectType, spawnObjectMessage.newPosition, spawnObjectMessage.newFloat, spawnObjectMessage.visualId);
+                break;
+            case 3:
+                DestroyObjectMessage destroyObjectMessage = new DestroyObjectMessage();
+                destroyObjectMessage.Unpack((byte[])content);
+                Debug.Log(Time.fixedTime + " Destroy [" + destroyObjectMessage.id + "]");
+                gameNetwork.RpcDestroyObject(destroyObjectMessage.id);
+                break;
+            case 4:
+                MoveObjectMessage moveObjectMessage = new MoveObjectMessage();
+                moveObjectMessage.Unpack((byte[])content);
+                gameNetwork.RpcMoveObject(moveObjectMessage.id, moveObjectMessage.newPosition, moveObjectMessage.newFloat);
+                break;
+            case 5:
+                UpdatePlayerMessage updatePlayerMessage = new UpdatePlayerMessage();
+                updatePlayerMessage.Unpack((byte[])content);
+                //Debug.Log("Player[" + updatePlayerMessage.id + "] health: " + updatePlayerMessage.newHealth + " ; stamina: " + updatePlayerMessage.newStamina);
+                gameNetwork.RpcUpdatePlayer(updatePlayerMessage.id, updatePlayerMessage.newHealth, updatePlayerMessage.newStamina);
+                break;
+            case 6:
+                gameNetwork.RpcRearmMissile();
+                break;
+            case 7:
+                baseObjectMessage = new BaseObjectMessage();
+                baseObjectMessage.Unpack((byte[])content);
+                gameNetwork.RpcFlashPlayer(baseObjectMessage.id);
+                break;
+            case 8:
+                baseObjectMessage = new BaseObjectMessage();
+                baseObjectMessage.Unpack((byte[])content);
+                gameNetwork.RpcGameOver(baseObjectMessage.id);
+                break;
+            case 9:
+                SetAbilityMessage setAbilityMessage = new SetAbilityMessage();
+                setAbilityMessage.Unpack((byte[])content);
+                gameNetwork.RpcSetAbility(setAbilityMessage.active, setAbilityMessage.id);
+                break;
+            case 10:
+                NoticeMessage noticeMessage = new NoticeMessage();
+                noticeMessage.Unpack((byte[])content);
+                string noticeText = "";
+                if (noticeMessage.color == 1)
+                {
+                    noticeText += "-";
+                }
+                else
+                {
+                    noticeText += "+";
+                }
+                if (noticeMessage.prefixMessage != -1)
+                {
+                    noticeText += " " + langNotices[noticeMessage.prefixMessage];
+                }
+                if (noticeMessage.numericValue != 0)
+                {
+                    noticeText += " " + noticeMessage.numericValue;
+                }
+                if (noticeMessage.suffixMessage != -1)
+                {
+                    noticeText += " " + langNotices[noticeMessage.suffixMessage];
+                }
+                Debug.Log("NOTICE: " + noticeText);
+                gameNetwork.RpcShowNotice(noticeMessage.id, noticeText, noticeMessage.offset, noticeMessage.color, noticeMessage.floating);
+                break;
+            case 11:
+                baseObjectMessage = new BaseObjectMessage();
+                baseObjectMessage.Unpack((byte[])content);
+                gameNetwork.RpcFlashPassiveAbility(baseObjectMessage.id);
+                break;
+            case 12:
+                baseObjectMessage = new BaseObjectMessage();
+                baseObjectMessage.Unpack((byte[])content);
+                gameNetwork.RpcFlashObstruction(baseObjectMessage.id);
+                break;
+        }
     }
 
     void OnGUI()
@@ -123,7 +306,7 @@ public class GameMatchMaker : NetworkBehaviour
     {
         UpdatePreferences();
         //Debug.Log("Create internet match");
-        NetManager.singleton.matchMaker.CreateMatch(matchName, 4, true, "", "", "", 0, 0, OnInternetMatchCreate);
+        //NetManager.singleton.matchMaker.CreateMatch(matchName, 4, true, "", "", "", 0, 0, OnInternetMatchCreate);
     }
 
     private void OnInternetMatchCreate(bool success, string extendedInfo, MatchInfo hostInfo)
@@ -138,8 +321,8 @@ public class GameMatchMaker : NetworkBehaviour
                 NetManager.singleton.StopMatchMaker();
                 NetManager.singleton.StartMatchMaker();
             }
-            NetworkServer.Listen(hostInfo, NetManager.singleton.networkPort);
-            NetManager.singleton.StartHost(hostInfo);
+            //NetworkServer.Listen(hostInfo, NetManager.singleton.networkPort);
+            //NetManager.singleton.StartHost(hostInfo);
             canvasPlay.enabled = true;
         }
         else
@@ -152,11 +335,11 @@ public class GameMatchMaker : NetworkBehaviour
     {
         if (gameNetwork != null)
         {
-            NetManager.singleton.StopMatchMaker();
-            NetManager.singleton.StartMatchMaker();
+            //NetManager.singleton.StopMatchMaker();
+            //NetManager.singleton.StartMatchMaker();
         }
         storedMatchName = matchName;
-        NetManager.singleton.matchMaker.ListMatches(0, 20, matchName, true, 0, 0, OnInternetMatchList);
+        //NetManager.singleton.matchMaker.ListMatches(0, 20, matchName, true, 0, 0, OnInternetMatchList);
     }
 
     private void OnInternetMatchList(bool success, string extendedInfo, List<MatchInfoSnapshot> matchList)
@@ -165,7 +348,7 @@ public class GameMatchMaker : NetworkBehaviour
         {
             if (matchList.Count != 0)
             {
-                NetManager.singleton.matchMaker.JoinMatch(matchList[matchList.Count - 1].networkId, "", "", "", 0, 0, OnJoinInternetMatch);
+                //NetManager.singleton.matchMaker.JoinMatch(matchList[matchList.Count - 1].networkId, "", "", "", 0, 0, OnJoinInternetMatch);
             }
             else
             {
@@ -195,7 +378,7 @@ public class GameMatchMaker : NetworkBehaviour
         if (matchInfo != null)
         {
             //Debug.Log("Able to join a match");
-            NetManager.singleton.StartClient(matchInfo);
+            //NetManager.singleton.StartClient(matchInfo);
             canvasPlay.enabled = true;
         }
         else

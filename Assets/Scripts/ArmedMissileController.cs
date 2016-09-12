@@ -1,10 +1,10 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 
 public class ArmedMissileController : MonoBehaviour {
 
 
-    public Vector3 anchor = new Vector3(0.0f, 0.5f, 0.0f);
+    public Vector3 anchor = new Vector3(0.0f, 0.45f, -0.25f);
     private float margin = -0.5f;
 
 	// Use this for initialization
@@ -34,15 +34,15 @@ public class ArmedMissileController : MonoBehaviour {
     public void SetAnchor(Vector2 position)
     {
         anchor.x = (position.x - 0.5f) * 0.7f;
-        anchor.y = 0.2f + position.y * 0.5f;
-        anchor.z = 0.0f;
+        anchor.y = 0.45f + position.y * 0.5f;
+        anchor.z = -0.25f;
     }
 
     public void ResetAnchor()
     {
         anchor.x = 0.0f;
-        anchor.y = 0.2f;
-        anchor.z = 0.0f;
+        anchor.y = 0.45f;
+        anchor.z = -0.25f;
     }
 
 }

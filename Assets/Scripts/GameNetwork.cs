@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Networking.NetworkSystem;
 using UnityEngine.Networking.Match;
@@ -7,8 +7,11 @@ using UnityEngine.UI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using ExitGames;
+using ExitGames.Client;
+using ExitGames.Client.Photon;
 
-public class GameNetwork : NetworkBehaviour {
+public class GameNetwork : Photon.PunBehaviour {
 
 
     public enum ClientEvent {
@@ -53,19 +56,22 @@ public class GameNetwork : NetworkBehaviour {
     public int swipeType = 2;
     public ThrowState throwState = ThrowState.NONE;
 
+    private bool _isServer = false;
+
     public new bool isServer {
         get {
             if(isLocal)
             {
                 return true;
             }
-            return base.isServer;
+            return _isServer;
         }
         set {
+            _isServer = value;
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcSpawnObject(int id, Location.ObjectType objectType, Vector3 newPosition, float newFloat, int visualId)
     {
         if (!isServer)
@@ -115,7 +121,8 @@ public class GameNetwork : NetworkBehaviour {
                     }
                     else
                     {
-                        missileObject.position = new Vector3(newPosition.x, newPosition.y, -newPosition.z);
+                        missileObject.position = armedMissile.transform.position;
+                        //missileObject.position = new Vector3(newPosition.x, newPosition.y, -newPosition.z);
                     }
                     missileObject.scale = newFloat;
                     missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
@@ -137,7 +144,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcDestroyObject(int id)
     {
         if (!isServer)
@@ -176,7 +183,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcMoveObject(int id, Vector3 newPosition, float newScale)
     {
         if (!isServer)
@@ -188,12 +195,14 @@ public class GameNetwork : NetworkBehaviour {
             {
                 if (obj.objectType == Location.ObjectType.MISSILE)
                 {
-                    obj.position = new Vector3(newPosition.x, -newPosition.y, newPosition.z);
+                    //obj.position = new Vector3(newPosition.x, -newPosition.y, newPosition.z);
+                    obj.position = newPosition;
                 }
                 else
                 {
                     obj.position = newPosition;
                 }
+                obj.localVelocity = (newPosition - obj.position) * 0.1f;
                 obj.scale = newScale;
             }
         }
@@ -203,7 +212,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcUpdatePlayer(int id, float health, float stamina)
     {
         if (!isServer)
@@ -222,7 +231,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcRearmMissile()
     {
         if (!isServer)
@@ -231,7 +240,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcFlashPlayer(int id)
     {
         if (!isServer)
@@ -240,7 +249,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcGameOver(int winner)
     {
         if (!isServer)
@@ -249,7 +258,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcSetAbility(bool active, int id)
     {
         if(!isServer)
@@ -286,7 +295,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcShowNotice(int target, string message, float offset, int color, bool floating)
     {
         if (!isServer)
@@ -310,7 +319,7 @@ public class GameNetwork : NetworkBehaviour {
                     floatingNotify.ShowRed(message);
                     break;
             }
-            if ((target == 0 && !isServer) || (target == 1 && isServer))
+            if (target == 1)
             {
                 if (location != null)
                 {
@@ -322,7 +331,7 @@ public class GameNetwork : NetworkBehaviour {
                     }
                 }
             }
-            else if ((target == 0 && isServer) || (target == 1 && !isServer))
+            else if (target == 0)
             {
                 floatingNotify.transform.position = camera.transform.position + Vector3.right * -0.2f + Vector3.forward * 1.0f + Vector3.up * (-0.95f + 0.05f * offset);
             }
@@ -331,7 +340,7 @@ public class GameNetwork : NetworkBehaviour {
         {
             FixedNotifyController fixedNotify = GameObject.Instantiate(fixedNotifyPrefab).GetComponent<FixedNotifyController>();
             fixedNotify.text.rectTransform.SetParent(gameMatchMaker.canvasPlay.transform);
-            if ((isServer && target == 0) || (!isServer && target == 1))
+            if (target == 0)
             {
                 fixedNotify.Show(0, message, color, offset);
             }
@@ -340,6 +349,13 @@ public class GameNetwork : NetworkBehaviour {
                 fixedNotify.Show(1, message, color, offset);
             }
         }
+    }
+
+    public void OnUseAbility(int id)
+    {
+        BaseObjectMessage baseMessage = new BaseObjectMessage();
+        baseMessage.id = id;
+        PhotonNetwork.networkingPeer.OpCustom((byte)3, new Dictionary<byte, object> { { 245, baseMessage.Pack() } }, true);
     }
 
     public void UseAbility(int id)
@@ -370,7 +386,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcFlashPassiveAbility(int id)
     {
         if (!isServer)
@@ -389,7 +405,7 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [ClientRpc]
+    //[PunRPC]
     public void RpcFlashObstruction(int id)
     {
         if(!isServer)
@@ -400,10 +416,15 @@ public class GameNetwork : NetworkBehaviour {
 
     public void FlashObstruction(int id)
     {
-        ObstructionObject obstructionObject = (ObstructionObject)location.GetObject(id);
-        if(obstructionObject != null && obstructionObject.visualObject != null)
+        LocationObject locationObject = location.GetObject(id);
+        ObstructionObject obstructionObject;
+        if (locationObject != null)
         {
-            obstructionObject.visualObject.Flash();
+            obstructionObject = (ObstructionObject)locationObject;
+            if (obstructionObject.visualObject != null)
+            {
+                obstructionObject.visualObject.Flash();
+            }
         }
     }
 
@@ -478,31 +499,104 @@ public class GameNetwork : NetworkBehaviour {
         }
     }
 
-    [Client]
     public void ClientInit()
     {
-        SendSimpleMessage(ClientEvent.CONNECTED);
+        if(isServer && !isLocal)
+        {
+            OnClientReady();
+        }
+        //SendSimpleMessage(ClientEvent.CONNECTED);
         abilityActiveButton.button.onClick.AddListener(delegate() {
             if (abilityActiveButton.Activate(10.0f))
             {
-                SendSimpleMessage(ClientEvent.USE_ABILITY);
+                OnUseAbility(0);
+                //SendSimpleMessage(ClientEvent.USE_ABILITY);
             }
         });
     }
 
+    [PunRPC]
+    public void OnClientReady()
+    {
+        if(isServer)
+        {
+            Debug.Log("OnClientReady [Server]");
+            InitializeLocation();
+            gameMatchMaker.canvasConnect.enabled = false;
+            gameMatchMaker.canvasSettings.enabled = false;
+            gameMatchMaker.canvasPlay.enabled = true;
+        }
+        else
+        {
+            Debug.Log("OnClientReady [Client]");
+        }
+    }
+
     public void ServerInit()
     {
+        PhotonPeer.RegisterType(typeof(FourFloatMessage), (byte)'A', SerializeGameMessage, DeserializeGameMessage);
+        PhotonPeer.RegisterType(typeof(FourFloatMessage), (byte)'C', SerializeFourFloatMessage, DeserializeFourFloatMessage);
+        /*
         NetworkServer.RegisterHandler(100, ReceiveClientSimpleMessage);
         NetworkServer.RegisterHandler(101, ReceiveClientIntMessage);
         NetworkServer.RegisterHandler(102, ReceiveClientFloatMessage);
         NetworkServer.RegisterHandler(103, ReceiveClientDoubleFloatMessage);
         NetworkServer.RegisterHandler(104, ReceiveClientFourFloatMessage);
+        */
         abilityActiveButton.button.onClick.AddListener(delegate () {
             if (abilityActiveButton.Activate(10.0f))
             {
                 UseAbility(0);
             }
         });
+    }
+
+    private static byte[] SerializeGameMessage(object customobject)
+    {
+        GameMessage o = (GameMessage)customobject;
+
+        byte[] bytes = new byte[4];
+        int index = 0;
+        Protocol.Serialize((int)o.clientEvent, bytes, ref index);
+        return bytes;
+    }
+
+    private static object DeserializeGameMessage(byte[] bytes)
+    {
+        FourFloatMessage o = new FourFloatMessage();
+        int n = 0;
+        int index = 0;
+        Protocol.Deserialize(out n, bytes, ref index);
+        o.clientEvent = (ClientEvent)n;
+        return o;
+    }
+
+    private static byte[] SerializeFourFloatMessage(object customobject)
+    {
+        FourFloatMessage o = (FourFloatMessage)customobject;
+
+        byte[] bytes = new byte[5 * 4];
+        int index = 0;
+        Protocol.Serialize((int)o.clientEvent, bytes, ref index);
+        Protocol.Serialize(o.value1, bytes, ref index);
+        Protocol.Serialize(o.value2, bytes, ref index);
+        Protocol.Serialize(o.value3, bytes, ref index);
+        Protocol.Serialize(o.value4, bytes, ref index);
+        return bytes;
+    }
+
+    private static object DeserializeFourFloatMessage(byte[] bytes)
+    {
+        FourFloatMessage o = new FourFloatMessage();
+        int n = 0;
+        int index = 0;
+        Protocol.Deserialize(out n, bytes, ref index);
+        o.clientEvent = (ClientEvent)n;
+        Protocol.Deserialize(out o.value1, bytes, ref index);
+        Protocol.Deserialize(out o.value2, bytes, ref index);
+        Protocol.Deserialize(out o.value3, bytes, ref index);
+        Protocol.Deserialize(out o.value4, bytes, ref index);
+        return o;
     }
 
     public void ReceiveClientSimpleMessage(NetworkMessage netMsg)
@@ -736,7 +830,14 @@ public class GameNetwork : NetworkBehaviour {
         }
         else
         {
-            SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
+            ThrowMessage throwMessage = new ThrowMessage();
+            throwMessage.id = 0;
+            throwMessage.angleX = e.angle.x;
+            throwMessage.angleY = e.angle.y;
+            throwMessage.torsion = e.torsion;
+            throwMessage.speed = e.speed;
+            PhotonNetwork.networkingPeer.OpCustom((byte)2, new Dictionary<byte, object> { { 245, throwMessage.Pack() } }, true);
+            //SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
         }
         throwState = ThrowState.NONE;
     }

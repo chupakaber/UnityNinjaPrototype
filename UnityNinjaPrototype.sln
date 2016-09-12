@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2015
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityNinjaPrototype.CSharp.Plugins", "UnityNinjaPrototype.CSharp.Plugins.csproj", "{C4E90C56-52C9-C068-308E-56DBD7DF5B76}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityNinjaPrototype.CSharp", "UnityNinjaPrototype.CSharp.csproj", "{39A2D100-6F8B-E83B-80D4-66569D6FF5C9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityNinjaPrototype.CSharp.Editor", "UnityNinjaPrototype.CSharp.Editor.csproj", "{758FB7EC-91EB-A15C-A54E-8E1B33D6A2B6}"
@@ -11,6 +13,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C4E90C56-52C9-C068-308E-56DBD7DF5B76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4E90C56-52C9-C068-308E-56DBD7DF5B76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4E90C56-52C9-C068-308E-56DBD7DF5B76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4E90C56-52C9-C068-308E-56DBD7DF5B76}.Release|Any CPU.Build.0 = Release|Any CPU
 		{39A2D100-6F8B-E83B-80D4-66569D6FF5C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{39A2D100-6F8B-E83B-80D4-66569D6FF5C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{39A2D100-6F8B-E83B-80D4-66569D6FF5C9}.Release|Any CPU.ActiveCfg = Release|Any CPU

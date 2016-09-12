@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 
 public class PlayerController : MonoBehaviour {
@@ -8,11 +8,13 @@ public class PlayerController : MonoBehaviour {
     public SpriteRenderer spriteRenderer;
     public Animator animator;
 
+    public Vector3 velocity = Vector3.zero;
+
     private int lastAnimId = 0;
     private int animate = 0;
     private float flashCooldown = 0.0f;
 
-	void Start () {
+    void Start () {
 
         name = "PlayerObject";
         if (obj == null)
@@ -46,6 +48,7 @@ public class PlayerController : MonoBehaviour {
                 animator.SetBool("animate", false);
             }
         }
+        transform.position += velocity;
 
     }
 

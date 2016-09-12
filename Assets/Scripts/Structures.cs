@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Networking.NetworkSystem;
 using UnityEngine.Networking.Match;
@@ -264,6 +264,19 @@ class FourFloatEventMessage : MessageBase
     public float value4 = 0.0f;
 }
 
+class GameMessage
+{
+    public GameNetwork.ClientEvent clientEvent;
+}
+
+class FourFloatMessage : GameMessage
+{
+    public float value1 = 0.0f;
+    public float value2 = 0.0f;
+    public float value3 = 0.0f;
+    public float value4 = 0.0f;
+}
+
 class LocationObjectEventMessage : MessageBase
 {
     public GameNetwork.ClientEvent clientEvent;
@@ -352,6 +365,7 @@ public class Location
                 {
                     case ObjectType.PLAYER:
                         playerObject = (PlayerObject)objNode.Value;
+                        playerObject.position += playerObject.localVelocity * deltaTime;
                         if (playerObject.visualObject != null)
                         {
                             if (Mathf.Abs(network.camera.transform.position.x - playerObject.position.x) > 3.0f)
@@ -405,7 +419,7 @@ public class Location
                             }
                             network.camera.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                         }
-                        if ((playerObject.id == 0 && network.isServer) || (playerObject.id == 1 && !network.isServer))
+                        if (playerObject.id == 0)
                         {
                             network.healthBarSelf.text = Mathf.Floor(playerObject.health) + "";
                             network.staminaBar.rectTransform.sizeDelta = new Vector2(((float)Screen.width) * playerObject.stamina / 100.0f, network.staminaBar.rectTransform.sizeDelta.y);
@@ -431,6 +445,7 @@ public class Location
                         break;
                     case ObjectType.MISSILE:
                         missileObject = (MissileObject)objNode.Value;
+                        missileObject.position += missileObject.localVelocity * deltaTime;
                         if (missileObject.visualObject != null)
                         {
                             v3Delta = missileObject.position - missileObject.visualObject.transform.position;
@@ -995,6 +1010,7 @@ public class LocationObject
     public Location.ObjectType objectType = Location.ObjectType.NONE;
     public int visualId = -1;
     public Vector3 position = new Vector3(0.0f, 0.0f, 0.0f);
+    public Vector3 localVelocity = new Vector3(0.0f, 0.0f, 0.0f);
     public Vector3 passiveVelocity = new Vector3(0.0f, 0.0f, 0.0f);
     public Vector3 torsion = new Vector3(0.0f, 0.0f, 0.0f);
     public float scale = 0.0f;
@@ -1089,5 +1105,275 @@ public class MissileObject : LocationObject
     public Vector3 direction = new Vector3(0.0f, 0.0f, 0.0f);
     public float velocity = 0.0f;
     public MissileController visualObject;
+
+}
+
+public class BaseObjectMessage
+{
+
+    public int id;
+
+    public virtual byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 1];
+        PutInt(data, id, ref index);
+        return data;
+    }
+
+    public virtual void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+    }
+
+    public bool GetBool(byte[] data, ref int index)
+    {
+        bool value = BitConverter.ToBoolean(data, index);
+        index += 1;
+        return value;
+    }
+
+    public int GetInt(byte[] data, ref int index)
+    {
+        int value = BitConverter.ToInt32(data, index);
+        index += 4;
+        return value;
+    }
+
+    public float GetFloat(byte[] data, ref int index)
+    {
+        float value = BitConverter.ToSingle(data, index);
+        index += 4;
+        return value;
+    }
+
+    public void PutBool(byte[] data, bool value, ref int index)
+    {
+        byte[] b1 = BitConverter.GetBytes(value);
+        Buffer.BlockCopy(b1, 0, data, index, 1);
+        index += 1;
+    }
+
+    public void PutInt(byte[] data, int value, ref int index)
+    {
+        byte[] b4 = BitConverter.GetBytes(value);
+        Buffer.BlockCopy(b4, 0, data, index, 4);
+        index += 4;
+    }
+
+    public void PutFloat(byte[] data, float value, ref int index)
+    {
+        byte[] b4 = BitConverter.GetBytes(value);
+        Buffer.BlockCopy(b4, 0, data, index, 4);
+        index += 4;
+    }
+
+}
+
+public class SpawnObjectMessage : BaseObjectMessage
+{
+
+    public Location.ObjectType objectType;
+    public Vector3 newPosition;
+    public float newFloat;
+    public int visualId;
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 7];
+        PutInt(data, id, ref index);
+        PutInt(data, (int)objectType, ref index);
+        PutFloat(data, newPosition.x, ref index);
+        PutFloat(data, newPosition.y, ref index);
+        PutFloat(data, newPosition.z, ref index);
+        PutFloat(data, newFloat, ref index);
+        PutInt(data, visualId, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+        objectType = (Location.ObjectType)GetInt(data, ref index);
+        newPosition = new Vector3();
+        newPosition.x = GetFloat(data, ref index);
+        newPosition.y = GetFloat(data, ref index);
+        newPosition.z = GetFloat(data, ref index);
+        newFloat = GetFloat(data, ref index);
+        visualId = GetInt(data, ref index);
+    }
+
+}
+
+public class DestroyObjectMessage : BaseObjectMessage
+{
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 1];
+        PutInt(data, id, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+    }
+
+}
+
+public class MoveObjectMessage : BaseObjectMessage
+{
+
+    public Vector3 newPosition;
+    public float newFloat;
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 5];
+        PutInt(data, id, ref index);
+        PutFloat(data, newPosition.x, ref index);
+        PutFloat(data, newPosition.y, ref index);
+        PutFloat(data, newPosition.z, ref index);
+        PutFloat(data, newFloat, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+        newPosition = new Vector3();
+        newPosition.x = GetFloat(data, ref index);
+        newPosition.y = GetFloat(data, ref index);
+        newPosition.z = GetFloat(data, ref index);
+        newFloat = GetFloat(data, ref index);
+        index += 4;
+    }
+
+}
+
+public class UpdatePlayerMessage : BaseObjectMessage
+{
+
+    public float newHealth;
+    public float newStamina;
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 3];
+        PutInt(data, id, ref index);
+        PutFloat(data, newHealth, ref index);
+        PutFloat(data, newStamina, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+        newHealth = GetFloat(data, ref index);
+        newStamina = GetFloat(data, ref index);
+    }
+
+}
+
+public class SetAbilityMessage : BaseObjectMessage
+{
+
+    public bool active;
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 1 + 1];
+        PutInt(data, id, ref index);
+        PutBool(data, active, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+        active = GetBool(data, ref index);
+    }
+
+}
+
+public class NoticeMessage : BaseObjectMessage
+{
+
+    public int numericValue;
+    public int prefixMessage;
+    public int suffixMessage;
+    public float offset;
+    public int color;
+    public bool floating;
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 6 + 1];
+        PutInt(data, id, ref index);
+        PutInt(data, numericValue, ref index);
+        PutInt(data, prefixMessage, ref index);
+        PutInt(data, suffixMessage, ref index);
+        PutFloat(data, offset, ref index);
+        PutInt(data, color, ref index);
+        PutBool(data, floating, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+        numericValue = GetInt(data, ref index);
+        prefixMessage = GetInt(data, ref index);
+        suffixMessage = GetInt(data, ref index);
+        offset = GetFloat(data, ref index);
+        color = GetInt(data, ref index);
+        floating = GetBool(data, ref index);
+    }
+
+}
+
+public class ThrowMessage : BaseObjectMessage
+{
+
+    public float angleX;
+    public float angleY;
+    public float torsion;
+    public float speed;
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 5];
+        PutInt(data, id, ref index);
+        PutFloat(data, angleX, ref index);
+        PutFloat(data, angleY, ref index);
+        PutFloat(data, torsion, ref index);
+        PutFloat(data, speed, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        id = GetInt(data, ref index);
+        angleX = GetFloat(data, ref index);
+        angleY = GetFloat(data, ref index);
+        torsion = GetFloat(data, ref index);
+        speed = GetFloat(data, ref index);
+    }
 
 }

@@ -368,9 +368,9 @@ public class Location
                         playerObject.position += playerObject.localVelocity * deltaTime;
                         if (playerObject.visualObject != null)
                         {
-                            if (Mathf.Abs(network.camera.transform.position.x - playerObject.position.x) > 3.0f)
+                            if (Mathf.Abs(network.camera.transform.position.x - playerObject.position.x * 10.0f) > 30.0f)
                             {
-                                if (network.camera.transform.position.x - playerObject.position.x > 0.0f)
+                                if (network.camera.transform.position.x - playerObject.position.x * 10.0f > 0.0f)
                                 {
                                     playerObject.position += Vector3.right * 6.0f;
                                 }
@@ -379,18 +379,18 @@ public class Location
                                     playerObject.position += Vector3.right * -6.0f;
                                 }
                             }
-                            v3Delta = Vector3.right * (playerObject.position.x * 1.0f - playerObject.visualObject.transform.position.x);
-                            if (Mathf.Abs(v3Delta.x) > 1.0f)
+                            v3Delta = Vector3.right * (playerObject.position.x * 10.0f - playerObject.visualObject.transform.position.x);
+                            if (Mathf.Abs(v3Delta.x) > 10.0f)
                             {
                                 if (v3Delta.x > 0.0f)
                                 {
-                                    playerObject.visualObject.transform.position += Vector3.right * 6.0f;
+                                    playerObject.visualObject.transform.position += Vector3.right * 6.0f * 10.0f;
                                 }
                                 else
                                 {
-                                    playerObject.visualObject.transform.position += Vector3.right * -6.0f;
+                                    playerObject.visualObject.transform.position += Vector3.right * -6.0f * 10.0f;
                                 }
-                                v3Delta = Vector3.right * (playerObject.position.x * 1.0f - playerObject.visualObject.transform.position.x);
+                                v3Delta = Vector3.right * (playerObject.position.x * 10.0f - playerObject.visualObject.transform.position.x);
                             }
                             playerObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                             if(v3Delta.x > 0.0f)
@@ -404,25 +404,25 @@ public class Location
                         }
                         else
                         {
-                            v3Delta = Vector3.right * (playerObject.position.x * 1.0f - network.camera.transform.position.x);
-                            if (Mathf.Abs(v3Delta.x) > 1.0f)
+                            v3Delta = Vector3.right * (playerObject.position.x * 10.0f - network.camera.transform.position.x);
+                            if (Mathf.Abs(v3Delta.x) > 10.0f)
                             {
                                 if (v3Delta.x > 0.0f)
                                 {
-                                    network.camera.transform.position += Vector3.right * 4.0f;
+                                    network.camera.transform.position += Vector3.right * 4.0f * 10.0f;
                                 }
                                 else
                                 {
-                                    network.camera.transform.position += Vector3.right * -4.0f;
+                                    network.camera.transform.position += Vector3.right * -4.0f * 10.0f;
                                 }
-                                v3Delta = Vector3.right * (playerObject.position.x * 1.0f - network.camera.transform.position.x);
+                                v3Delta = Vector3.right * (playerObject.position.x * 10.0f - network.camera.transform.position.x);
                             }
                             network.camera.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                         }
-                        if (playerObject.id == 0)
+                        if (playerObject.id == network.playerId)
                         {
                             network.healthBarSelf.text = Mathf.Floor(playerObject.health) + "";
-                            network.staminaBar.rectTransform.sizeDelta = new Vector2(((float)Screen.width) * playerObject.stamina / 100.0f, network.staminaBar.rectTransform.sizeDelta.y);
+                            network.staminaBar.rectTransform.sizeDelta = new Vector2(network.staminaBar.rectTransform.sizeDelta.x + (network.gameMatchMaker.canvasPlay.pixelRect.width * playerObject.stamina / 100.0f - network.staminaBar.rectTransform.sizeDelta.x) * Mathf.Min(1.0f, Time.deltaTime * 15.0f), network.staminaBar.rectTransform.sizeDelta.y);
                         }
                         else
                         {
@@ -431,15 +431,15 @@ public class Location
                         break;
                     case ObjectType.OBSTRUCTION:
                         obstructionObject = (ObstructionObject)objNode.Value;
-                        if (Mathf.Abs(network.camera.transform.position.x - obstructionObject.visualObject.transform.position.x) > 2.0f)
+                        if (Mathf.Abs(network.camera.transform.position.x - obstructionObject.visualObject.transform.position.x) > 20.0f)
                         {
                             if (network.camera.transform.position.x - obstructionObject.visualObject.transform.position.x > 0.0f)
                             {
-                                obstructionObject.visualObject.transform.position += Vector3.right * 4.0f;
+                                obstructionObject.visualObject.transform.position += Vector3.right * 40.0f;
                             }
                             else
                             {
-                                obstructionObject.visualObject.transform.position += Vector3.right * -4.0f;
+                                obstructionObject.visualObject.transform.position += Vector3.right * -40.0f;
                             }
                         }
                         break;
@@ -448,7 +448,7 @@ public class Location
                         missileObject.position += missileObject.localVelocity * deltaTime;
                         if (missileObject.visualObject != null)
                         {
-                            v3Delta = missileObject.position - missileObject.visualObject.transform.position;
+                            v3Delta = missileObject.position * 10.0f - missileObject.visualObject.transform.position;
                             missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                             //scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
                             //missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
@@ -606,7 +606,7 @@ public class Location
                         }
                         if (network.updating && !network.isLocal)
                         {
-                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.scale);
+                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.scale, 0.0f);
                             network.RpcUpdatePlayer(playerObject.id, playerObject.health, playerObject.stamina);
                         }
                         break;
@@ -923,7 +923,7 @@ public class Location
                         }
                         if (network.updating && !network.isLocal)
                         {
-                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.scale);
+                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.scale, 0.0f);
                         }
                         break;
                 }
@@ -1005,6 +1005,10 @@ public class LocationObject
 {
 
     public static int lastObjectId = 0;
+
+    public float lastTimestamp = 0.0f;
+    public float lastRemoteTimestamp = 0.0f;
+    public Vector3 lastPosition = new Vector3();
 
     public int id = -1;
     public Location.ObjectType objectType = Location.ObjectType.NONE;
@@ -1112,19 +1116,42 @@ public class BaseObjectMessage
 {
 
     public int id;
+    public float timestamp = 0.0f;
+
+    public BaseObjectMessage()
+    {
+
+    }
+
+    public BaseObjectMessage(float currentTimestamp)
+    {
+        timestamp = currentTimestamp;
+    }
 
     public virtual byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 1];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 2];
+        PackBase(ref data, ref index);
         return data;
     }
 
     public virtual void Unpack(byte[] data)
     {
         int index = 0;
+        UnpackBase(ref data, ref index);
+    }
+
+    public void PackBase(ref byte[] data, ref int index)
+    {
+        PutInt(data, id, ref index);
+        PutFloat(data, timestamp, ref index);
+    }
+
+    public void UnpackBase(ref byte[] data, ref int index)
+    {
         id = GetInt(data, ref index);
+        timestamp = GetFloat(data, ref index);
     }
 
     public bool GetBool(byte[] data, ref int index)
@@ -1179,11 +1206,19 @@ public class SpawnObjectMessage : BaseObjectMessage
     public float newFloat;
     public int visualId;
 
+    public SpawnObjectMessage() : base()
+    {
+    }
+
+    public SpawnObjectMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 7];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 8];
+        PackBase(ref data, ref index);
         PutInt(data, (int)objectType, ref index);
         PutFloat(data, newPosition.x, ref index);
         PutFloat(data, newPosition.y, ref index);
@@ -1196,7 +1231,7 @@ public class SpawnObjectMessage : BaseObjectMessage
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
         objectType = (Location.ObjectType)GetInt(data, ref index);
         newPosition = new Vector3();
         newPosition.x = GetFloat(data, ref index);
@@ -1211,18 +1246,26 @@ public class SpawnObjectMessage : BaseObjectMessage
 public class DestroyObjectMessage : BaseObjectMessage
 {
 
+    public DestroyObjectMessage() : base()
+    {
+    }
+
+    public DestroyObjectMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 1];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 2];
+        PackBase(ref data, ref index);
         return data;
     }
 
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
     }
 
 }
@@ -1233,11 +1276,19 @@ public class MoveObjectMessage : BaseObjectMessage
     public Vector3 newPosition;
     public float newFloat;
 
+    public MoveObjectMessage() : base()
+    {
+    }
+
+    public MoveObjectMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 5];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 6];
+        PackBase(ref data, ref index);
         PutFloat(data, newPosition.x, ref index);
         PutFloat(data, newPosition.y, ref index);
         PutFloat(data, newPosition.z, ref index);
@@ -1248,7 +1299,7 @@ public class MoveObjectMessage : BaseObjectMessage
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
         newPosition = new Vector3();
         newPosition.x = GetFloat(data, ref index);
         newPosition.y = GetFloat(data, ref index);
@@ -1265,11 +1316,19 @@ public class UpdatePlayerMessage : BaseObjectMessage
     public float newHealth;
     public float newStamina;
 
+    public UpdatePlayerMessage() : base()
+    {
+    }
+
+    public UpdatePlayerMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 3];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 4];
+        PackBase(ref data, ref index);
         PutFloat(data, newHealth, ref index);
         PutFloat(data, newStamina, ref index);
         return data;
@@ -1278,7 +1337,7 @@ public class UpdatePlayerMessage : BaseObjectMessage
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
         newHealth = GetFloat(data, ref index);
         newStamina = GetFloat(data, ref index);
     }
@@ -1290,11 +1349,19 @@ public class SetAbilityMessage : BaseObjectMessage
 
     public bool active;
 
+    public SetAbilityMessage() : base()
+    {
+    }
+
+    public SetAbilityMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 1 + 1];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 2 + 1];
+        PackBase(ref data, ref index);
         PutBool(data, active, ref index);
         return data;
     }
@@ -1302,7 +1369,7 @@ public class SetAbilityMessage : BaseObjectMessage
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
         active = GetBool(data, ref index);
     }
 
@@ -1318,11 +1385,19 @@ public class NoticeMessage : BaseObjectMessage
     public int color;
     public bool floating;
 
+    public NoticeMessage() : base()
+    {
+    }
+
+    public NoticeMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 6 + 1];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 7 + 1];
+        PackBase(ref data, ref index);
         PutInt(data, numericValue, ref index);
         PutInt(data, prefixMessage, ref index);
         PutInt(data, suffixMessage, ref index);
@@ -1335,7 +1410,7 @@ public class NoticeMessage : BaseObjectMessage
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
         numericValue = GetInt(data, ref index);
         prefixMessage = GetInt(data, ref index);
         suffixMessage = GetInt(data, ref index);
@@ -1354,11 +1429,19 @@ public class ThrowMessage : BaseObjectMessage
     public float torsion;
     public float speed;
 
+    public ThrowMessage() : base()
+    {
+    }
+
+    public ThrowMessage(float currentTimestamp) : base(currentTimestamp)
+    {
+    }
+
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 5];
-        PutInt(data, id, ref index);
+        byte[] data = new byte[4 * 6];
+        PackBase(ref data, ref index);
         PutFloat(data, angleX, ref index);
         PutFloat(data, angleY, ref index);
         PutFloat(data, torsion, ref index);
@@ -1369,7 +1452,7 @@ public class ThrowMessage : BaseObjectMessage
     public override void Unpack(byte[] data)
     {
         int index = 0;
-        id = GetInt(data, ref index);
+        UnpackBase(ref data, ref index);
         angleX = GetFloat(data, ref index);
         angleY = GetFloat(data, ref index);
         torsion = GetFloat(data, ref index);
@@ -1377,3 +1460,4 @@ public class ThrowMessage : BaseObjectMessage
     }
 
 }
+

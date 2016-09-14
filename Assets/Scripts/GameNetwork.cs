@@ -45,6 +45,7 @@ public class GameNetwork : Photon.PunBehaviour {
     public Camera camera;
     public Location location;
     public SwipeController swipeController = new SwipeController();
+    public int playerId = -1;
     public bool isLocal = false;
     public bool ready = false;
     public bool updating = false;
@@ -74,33 +75,50 @@ public class GameNetwork : Photon.PunBehaviour {
     //[PunRPC]
     public void RpcSpawnObject(int id, Location.ObjectType objectType, Vector3 newPosition, float newFloat, int visualId)
     {
+        PlayerController playerController = null;
+        PlayerObject playerObject = null;
+        PlayerObject playerObject2 = null;
+        ObstructionController obstructionController = null;
+        ObstructionObject obstructionObject = null;
+        MissileController missileController = null;
+        MissileObject missileObject = null;
         if (!isServer)
         {
             //Debug.Log("RpcSpawnObject [CLIENT]: " + id + "; " + newPosition);
             switch (objectType)
             {
                 case Location.ObjectType.PLAYER:
-                    PlayerController playerController = null;
-                    PlayerObject playerObject = null;
                     playerObject = new PlayerObject();
                     playerObject.id = id;
                     playerObject.position = newPosition;
                     playerObject.scale = newFloat;
                     playerObject.health = 100.0f;
                     playerObject.direction = 1.0f;
-                    if (id == 0)
+                    /* duplicate for GameMatchMaker.OnEvent case 1 */
+                    /*
+                    if (id != playerId && playerId != -1)
                     {
                         playerController = (Instantiate(bodyPrefabs[0])).GetComponent<PlayerController>();
                         playerController.gameNetwork = this;
                         playerController.obj = playerObject;
                         playerObject.visualObject = playerController;
-                        playerController.transform.position = playerObject.position;
+                        playerController.transform.position = playerObject.position * 10.0f;
+                        playerController.transform.localScale *= 10.0f;
                     }
+                    if (id == playerId && playerId != -1)
+                    {
+                        camera.transform.position = new Vector3(camera.transform.position.x, camera.transform.position.y, playerObject.position.z * 10.0f);
+                        if (playerId == 1)
+                        {
+                            camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
+                        }
+                    }
+                    */
+                    /* */
                     location.AddObject(playerObject);
                     break;
                 case Location.ObjectType.OBSTRUCTION:
-                    ObstructionController obstructionController = null;
-                    ObstructionObject obstructionObject = new ObstructionObject();
+                    obstructionObject = new ObstructionObject();
                     obstructionObject.id = id;
                     obstructionObject.position = newPosition;
                     obstructionObject.scale = newFloat;
@@ -108,28 +126,29 @@ public class GameNetwork : Photon.PunBehaviour {
                     obstructionController = (Instantiate(obstructionPrefabs[obstructionObject.visualId])).GetComponent<ObstructionController>();
                     obstructionController.obj = obstructionObject;
                     obstructionObject.visualObject = obstructionController;
-                    obstructionController.transform.position = obstructionObject.position;
+                    obstructionController.transform.position = obstructionObject.position * 10.0f;
+                    obstructionController.transform.localScale *= 10.0f;
                     location.AddObject(obstructionObject);
                     break;
                 case Location.ObjectType.MISSILE:
-                    MissileController missileController = null;
-                    MissileObject missileObject = new MissileObject();
+                    missileObject = new MissileObject();
                     missileObject.id = id;
-                    if (Mathf.Abs(newPosition.z) < 0.1f)
+                    playerObject = (PlayerObject)location.GetObject(playerId);
+                    if (Mathf.Abs(newPosition.z - playerObject.position.z) < 0.5f) // my missile
                     {
-                        missileObject.position = armedMissile.transform.position;
+                        missileObject.position = armedMissile.transform.position / 10.0f;
                     }
                     else
                     {
-                        missileObject.position = armedMissile.transform.position;
-                        //missileObject.position = new Vector3(newPosition.x, newPosition.y, -newPosition.z);
+                        missileObject.position = newPosition;
                     }
                     missileObject.scale = newFloat;
                     missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
                     missileController.obj = missileObject;
                     missileController.torsion = newFloat;
                     missileObject.visualObject = missileController;
-                    missileController.transform.position = missileObject.position;
+                    missileController.transform.position = missileObject.position * 10.0f;
+                    missileController.transform.localScale *= 10.0f;
                     if (Mathf.Abs(newPosition.z) < 0.1f)
                     {
                         missileController.transform.rotation = armedMissile.transform.rotation;
@@ -184,7 +203,7 @@ public class GameNetwork : Photon.PunBehaviour {
     }
 
     //[PunRPC]
-    public void RpcMoveObject(int id, Vector3 newPosition, float newScale)
+    public void RpcMoveObject(int id, Vector3 newPosition, float newScale, float messageTimestamp)
     {
         if (!isServer)
         {
@@ -193,17 +212,20 @@ public class GameNetwork : Photon.PunBehaviour {
             LocationObject obj = GetLocationObject(id);
             if (obj != null)
             {
-                if (obj.objectType == Location.ObjectType.MISSILE)
+                if (messageTimestamp > obj.lastRemoteTimestamp)
                 {
-                    //obj.position = new Vector3(newPosition.x, -newPosition.y, newPosition.z);
-                    obj.position = newPosition;
+                    if(obj.lastRemoteTimestamp <= 0.0f)
+                    {
+                        obj.lastPosition = newPosition;
+                        obj.lastRemoteTimestamp = messageTimestamp;
+                    }
+                    obj.localVelocity = (newPosition - obj.lastPosition) / Math.Max(0.05f, (messageTimestamp - obj.lastRemoteTimestamp));
+                    obj.position = newPosition + obj.localVelocity * ((Time.time - obj.lastTimestamp) - (messageTimestamp - obj.lastRemoteTimestamp));
+                    obj.scale = newScale;
+                    obj.lastPosition = newPosition;
+                    obj.lastRemoteTimestamp = messageTimestamp;
+                    obj.lastTimestamp = Time.time;
                 }
-                else
-                {
-                    obj.position = newPosition;
-                }
-                obj.localVelocity = (newPosition - obj.position) * 0.1f;
-                obj.scale = newScale;
             }
         }
         else
@@ -319,28 +341,28 @@ public class GameNetwork : Photon.PunBehaviour {
                     floatingNotify.ShowRed(message);
                     break;
             }
-            if (target == 1)
+            if (target == playerId)
             {
                 if (location != null)
                 {
                     PlayerObject playerObject = (PlayerObject)location.GetObject(target);
                     if (playerObject != null && playerObject.visualObject != null)
                     {
-                        floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(playerObject.visualObject.transform.position.z, 0.5f);
-                        floatingNotify.transform.position = playerObject.visualObject.transform.position + Vector3.right * 0.2f + Vector3.forward * -1.0f + Vector3.up * -0.01f * offset * (1.0f + playerObject.visualObject.transform.position.z * 2.0f);
+                        floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(playerObject.visualObject.transform.position.z, 0.5f) * 10.0f;
+                        floatingNotify.transform.position = playerObject.visualObject.transform.position + Vector3.right * 0.2f + Vector3.forward * -1.0f + Vector3.up * -0.1f * offset * (1.0f + playerObject.visualObject.transform.position.z * 2.0f);
                     }
                 }
             }
-            else if (target == 0)
+            else if (target != playerId)
             {
-                floatingNotify.transform.position = camera.transform.position + Vector3.right * -0.2f + Vector3.forward * 1.0f + Vector3.up * (-0.95f + 0.05f * offset);
+                floatingNotify.transform.position = camera.transform.position + Vector3.right * -0.2f + Vector3.forward * 1.0f + Vector3.up * (-0.95f + 0.5f * offset);
             }
         }
         else
         {
             FixedNotifyController fixedNotify = GameObject.Instantiate(fixedNotifyPrefab).GetComponent<FixedNotifyController>();
             fixedNotify.text.rectTransform.SetParent(gameMatchMaker.canvasPlay.transform);
-            if (target == 0)
+            if (target == playerId)
             {
                 fixedNotify.Show(0, message, color, offset);
             }

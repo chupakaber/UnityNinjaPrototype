@@ -23,6 +23,7 @@ public class GameMatchMaker : Photon.PunBehaviour
     public Canvas canvasSettings;
     public Button startButton;
     public Button joinButton;
+    public Text joinButtonText;
     public Button startLocalButton;
     public Button settingsButton;
     public InputField roomIdField;
@@ -67,41 +68,76 @@ public class GameMatchMaker : Photon.PunBehaviour
     public InputField preferenceFieldInjureLegEffect;
     public InputField preferenceFieldStrafeSpeed;
 
-    private bool tryOpenRoom = false;
 
     private Dictionary<int, string> langNotices = new Dictionary<int, string>();
+    private RoomInfo selectedRoom = null;
+    private TypedLobby lobby;
 
     public override void OnConnectedToMaster()
     {
         Debug.Log("CONNECTED!");
-        TypedLobby lobby = new TypedLobby();
-        if (tryOpenRoom)
+        lobby = new TypedLobby();
+        lobby.Type = LobbyType.Default;
+        lobby.Name = "Battle";
+        PhotonNetwork.JoinLobby(lobby);
+    }
+
+    public override void OnJoinedLobby()
+    {
+        base.OnJoinedLobby();
+        int i;
+        Debug.Log("OnJoinedLobby: " + PhotonNetwork.networkingPeer.lobby.Name + " [" + PhotonNetwork.networkingPeer.lobby.Type + "] (" + PhotonNetwork.networkingPeer.insideLobby + ")");
+        joinButton.interactable = true;
+    }
+
+    public override void OnReceivedRoomListUpdate()
+    {
+        base.OnReceivedRoomListUpdate();
+        int i;
+        RoomInfo[] rooms = PhotonNetwork.GetRoomList();
+        Debug.Log("Rooms: " + rooms.Length);
+        for (i = 0; i < rooms.Length; i++)
         {
-            if (PhotonNetwork.CreateRoom(roomIdField.text))
+            if (selectedRoom == null && rooms[i].open && rooms[i].playerCount == 1)
             {
-                Debug.Log("Room created!");
+                selectedRoom = rooms[i];
             }
-            else
-            {
-                Debug.LogError("Can't create room");
-            }
+            Debug.Log("Room [" + rooms[i].name + "] players: " + rooms[i].playerCount);
         }
-        else
+        if (selectedRoom != null)
         {
-            if (PhotonNetwork.JoinRoom(roomIdField.text))
-            {
-                Debug.Log("Room joined!");
-            }
-            else
-            {
-                Debug.LogError("Can't join room");
-            }
+            joinButtonText.text = "Войти в бой #" + selectedRoom.name;
+            roomIdField.text = selectedRoom.name;
         }
     }
 
     public override void OnJoinedRoom()
     {
-        Debug.Log("OnJoinedRoom: " + PhotonNetwork.networkingPeer.CurrentRoom.name);
+        base.OnJoinedRoom();
+        int i;
+        Debug.Log("OnJoinedRoom: " + PhotonNetwork.networkingPeer.CurrentRoom.name + " (" + PhotonNetwork.networkingPeer.CurrentRoom.playerCount + ")");
+        canvasConnect.enabled = false;
+    }
+
+    public override void OnCreatedRoom()
+    {
+        base.OnCreatedRoom();
+        Debug.Log("OnCreatedRoom: " + PhotonNetwork.networkingPeer.CurrentRoom.name + " (" + PhotonNetwork.networkingPeer.CurrentRoom.playerCount + ")");
+    }
+
+    public override void OnPhotonCreateRoomFailed(object[] codeAndMsg)
+    {
+        base.OnPhotonCreateRoomFailed(codeAndMsg);
+        startButton.interactable = true;
+        startLocalButton.interactable = true;
+    }
+
+    public override void OnPhotonJoinRoomFailed(object[] codeAndMsg)
+    {
+        base.OnPhotonCreateRoomFailed(codeAndMsg);
+        joinButtonText.text = "Создать бой";
+        startButton.interactable = true;
+        startLocalButton.interactable = true;
     }
 
     void Start()
@@ -111,6 +147,7 @@ public class GameMatchMaker : Photon.PunBehaviour
         canvasConnect.enabled = true;
         canvasPlay.enabled = false;
         canvasSettings.enabled = false;
+        roomIdField.text = "" + UnityEngine.Random.Range(1, 9);
         settingsButton.onClick.AddListener(delegate(){
             if(canvasSettings.enabled)
             {
@@ -135,35 +172,51 @@ public class GameMatchMaker : Photon.PunBehaviour
                 gameNetwork.gameMatchMaker = this;
                 gameNetwork.isServer = false;
                 gameNetwork.isLocal = false;
-                canvasConnect.enabled = false;
-                tryOpenRoom = true;
             }
             else
             {
                 Debug.LogError("Connection to Photon Server failed");
+                startButton.interactable = true;
+                startLocalButton.interactable = true;
+                DestroyImmediate(gameNetwork);
             }
+            startButton.interactable = false;
+            startLocalButton.interactable = false;
             //CreateInternetMatch(roomIdField.text);
         });
         joinButton.onClick.AddListener(delegate () {
-            Debug.Log("Connecting to Photon Server start #2");
-            if (PhotonNetwork.ConnectUsingSettings("1.0"))
+            Debug.Log("Joining room");
+            if (selectedRoom == null)
             {
-                Debug.Log("Connecting to Photon Server process... #2");
-                gameNetwork = GameObject.Instantiate(gameNetworkPrefab).GetComponent<GameNetwork>();
-                gameNetwork.camera = camera;
-                gameNetwork.gameMatchMaker = this;
-                gameNetwork.isServer = false;
-                gameNetwork.isLocal = false;
-                canvasConnect.enabled = false;
-                tryOpenRoom = false;
+                RoomOptions roomOptions = new RoomOptions();
+                roomOptions.IsOpen = true;
+                roomOptions.IsVisible = true;
+                roomOptions.MaxPlayers = 2;
+                if (PhotonNetwork.CreateRoom(roomIdField.text, roomOptions, lobby))
+                {
+                    Debug.Log("Room creating!");
+                }
+                else
+                {
+                    Debug.LogError("Can't create room");
+                }
             }
             else
             {
-                Debug.LogError("Connection to Photon Server failed");
+                if (PhotonNetwork.JoinRoom(selectedRoom.name))
+                {
+                    Debug.Log("Room joining!");
+                }
+                else
+                {
+                    Debug.LogError("Can't join room");
+                }
             }
             //FindInternetMatch(roomIdField.text);
             //canvasConnect.enabled = false;
+            joinButton.interactable = false;
         });
+        joinButton.interactable = false;
         startLocalButton.onClick.AddListener(delegate () {
             UpdatePreferences();
             gameNetwork = GameObject.Instantiate(gameNetworkPrefab).GetComponent<GameNetwork>();
@@ -192,12 +245,35 @@ public class GameMatchMaker : Photon.PunBehaviour
     void OnEvent(byte eventCode, object content, int senderId)
     {
         BaseObjectMessage baseObjectMessage;
+        PlayerObject playerObject = null;
+        PlayerController playerController = null;
         //Debug.Log("RECEIVE EVENT[" + eventCode + "] from [" + senderId + "]");
         switch (eventCode)
         {
             case 1:
-                string data = (string)content;
+                baseObjectMessage = new BaseObjectMessage();
+                baseObjectMessage.Unpack((byte[])content);
                 gameNetwork.ClientInit();
+                gameNetwork.playerId = baseObjectMessage.id;
+                playerObject = (PlayerObject)gameNetwork.location.GetObject(gameNetwork.playerId);
+                if (playerObject != null)
+                {
+                    camera.transform.position = new Vector3(camera.transform.position.x, camera.transform.position.y, playerObject.position.z * 10.0f);
+                    if (gameNetwork.playerId == 1)
+                    {
+                        camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
+                    }
+                }
+                playerObject = (PlayerObject)gameNetwork.location.GetObject(gameNetwork.playerId == 1 ? 0 : 1);
+                if (playerObject != null)
+                {
+                    playerController = (Instantiate(gameNetwork.bodyPrefabs[0])).GetComponent<PlayerController>();
+                    playerController.gameNetwork = gameNetwork;
+                    playerController.obj = playerObject;
+                    playerObject.visualObject = playerController;
+                    playerController.transform.position = playerObject.position * 10.0f;
+                    playerController.transform.localScale *= 10.0f;
+                }
                 canvasPlay.enabled = true;
                 PhotonNetwork.networkingPeer.OpCustom((byte)1, new Dictionary<byte, object> { { 100, "CLIENT_JOINED" } }, true);
                 break;
@@ -216,7 +292,7 @@ public class GameMatchMaker : Photon.PunBehaviour
             case 4:
                 MoveObjectMessage moveObjectMessage = new MoveObjectMessage();
                 moveObjectMessage.Unpack((byte[])content);
-                gameNetwork.RpcMoveObject(moveObjectMessage.id, moveObjectMessage.newPosition, moveObjectMessage.newFloat);
+                gameNetwork.RpcMoveObject(moveObjectMessage.id, moveObjectMessage.newPosition, moveObjectMessage.newFloat, moveObjectMessage.timestamp);
                 break;
             case 5:
                 UpdatePlayerMessage updatePlayerMessage = new UpdatePlayerMessage();
@@ -266,7 +342,6 @@ public class GameMatchMaker : Photon.PunBehaviour
                 {
                     noticeText += " " + langNotices[noticeMessage.suffixMessage];
                 }
-                Debug.Log("NOTICE: " + noticeText);
                 gameNetwork.RpcShowNotice(noticeMessage.id, noticeText, noticeMessage.offset, noticeMessage.color, noticeMessage.floating);
                 break;
             case 11:

@@ -46,6 +46,8 @@ public class GameNetwork : Photon.PunBehaviour {
     public Location location;
     public SwipeController swipeController = new SwipeController();
     public int playerId = -1;
+    public int myMissileId = 1;
+    public int opponentMissileId = 1;
     public bool isLocal = false;
     public bool ready = false;
     public bool updating = false;
@@ -54,10 +56,11 @@ public class GameNetwork : Photon.PunBehaviour {
     public float lastTouchX = 0.0f;
     public float lastTouchY = 0.0f;
 
-    public int swipeType = 2;
+    public int swipeType = 1;
     public ThrowState throwState = ThrowState.NONE;
 
     private bool _isServer = false;
+    private float touchTime = 0.0f;
 
     public new bool isServer {
         get {
@@ -73,7 +76,7 @@ public class GameNetwork : Photon.PunBehaviour {
     }
 
     //[PunRPC]
-    public void RpcSpawnObject(int id, Location.ObjectType objectType, Vector3 newPosition, float newFloat, int visualId)
+    public void RpcSpawnObject(int id, Location.ObjectType objectType, Vector3 newPosition, Vector3 newVelocity, Vector3 newAcceleration, Vector3 newTorsion, float newFloat, int visualId)
     {
         PlayerController playerController = null;
         PlayerObject playerObject = null;
@@ -91,31 +94,33 @@ public class GameNetwork : Photon.PunBehaviour {
                     playerObject = new PlayerObject();
                     playerObject.id = id;
                     playerObject.position = newPosition;
+                    playerObject.velocity = newVelocity;
+                    playerObject.acceleration = newAcceleration;
+                    playerObject.torsion = newTorsion;
                     playerObject.scale = newFloat;
                     playerObject.health = 100.0f;
                     playerObject.direction = 1.0f;
                     /* duplicate for GameMatchMaker.OnEvent case 1 */
-                    /*
-                    if (id != playerId && playerId != -1)
+                    if (id != playerId && playerId != -1 && playerObject.visualObject == null)
                     {
                         playerController = (Instantiate(bodyPrefabs[0])).GetComponent<PlayerController>();
                         playerController.gameNetwork = this;
                         playerController.obj = playerObject;
                         playerObject.visualObject = playerController;
-                        playerController.transform.position = playerObject.position * 10.0f;
-                        playerController.transform.localScale *= 10.0f;
+                        playerController.transform.position = playerObject.position * 100.0f;
+                        playerController.transform.localScale *= 20.0f;
                     }
                     if (id == playerId && playerId != -1)
                     {
-                        camera.transform.position = new Vector3(camera.transform.position.x, camera.transform.position.y, playerObject.position.z * 10.0f);
+                        camera.transform.position = playerObject.position * 100.0f + Vector3.up * 10.0f;
                         if (playerId == 1)
                         {
                             camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
                         }
                     }
-                    */
                     /* */
                     location.AddObject(playerObject);
+                    Debug.Log("PLAYER SPAWNED [" + playerObject.id + "]");
                     break;
                 case Location.ObjectType.OBSTRUCTION:
                     obstructionObject = new ObstructionObject();
@@ -126,34 +131,44 @@ public class GameNetwork : Photon.PunBehaviour {
                     obstructionController = (Instantiate(obstructionPrefabs[obstructionObject.visualId])).GetComponent<ObstructionController>();
                     obstructionController.obj = obstructionObject;
                     obstructionObject.visualObject = obstructionController;
-                    obstructionController.transform.position = obstructionObject.position * 10.0f;
-                    obstructionController.transform.localScale *= 10.0f;
+                    obstructionController.transform.position = obstructionObject.position * 100.0f;
+                    obstructionController.transform.localScale *= 20.0f;
                     location.AddObject(obstructionObject);
                     break;
                 case Location.ObjectType.MISSILE:
-                    missileObject = new MissileObject();
-                    missileObject.id = id;
+                    LocationObject locationObject = location.GetObject(playerId);
+                    Debug.Log("GET PLAYER OBJECT[" + playerId + "]: " + (locationObject != null));
+                    Debug.Log("LocationObject[" + locationObject.id +  "]: " + locationObject.objectType);
                     playerObject = (PlayerObject)location.GetObject(playerId);
                     if (Mathf.Abs(newPosition.z - playerObject.position.z) < 0.5f) // my missile
                     {
-                        missileObject.position = armedMissile.transform.position / 10.0f;
+                        //missileObject.position = armedMissile.transform.position / 10.0f;
+                        //missileObject.position = newPosition;
+                        //missileObject.velocity = newVelocity;
+                        //missileObject.acceleration = newAcceleration;
+                        //missileObject.torsion = newTorsion;
                     }
                     else
                     {
+                        missileObject = new MissileObject();
+                        missileObject.id = id;
                         missileObject.position = newPosition;
+                        missileObject.velocity = newVelocity;
+                        missileObject.acceleration = newAcceleration;
+                        missileObject.torsion = newTorsion;
+                        missileObject.scale = newFloat;
+                        missileController = (Instantiate(missilePrefabs[opponentMissileId])).GetComponent<MissileController>();
+                        missileController.obj = missileObject;
+                        missileController.torsion = newFloat;
+                        missileObject.visualObject = missileController;
+                        missileController.transform.position = missileObject.position * 100.0f;
+                        missileController.transform.localScale *= 20.0f;
+                        location.AddObject(missileObject);
                     }
-                    missileObject.scale = newFloat;
-                    missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
-                    missileController.obj = missileObject;
-                    missileController.torsion = newFloat;
-                    missileObject.visualObject = missileController;
-                    missileController.transform.position = missileObject.position * 10.0f;
-                    missileController.transform.localScale *= 10.0f;
-                    if (Mathf.Abs(newPosition.z) < 0.1f)
-                    {
-                        missileController.transform.rotation = armedMissile.transform.rotation;
-                    }
-                    location.AddObject(missileObject);
+                    //if (Mathf.Abs(newPosition.z) < 0.1f)
+                    //{
+                    //    missileController.transform.rotation = armedMissile.transform.rotation;
+                    //}
                     break;
             }
         }
@@ -203,7 +218,7 @@ public class GameNetwork : Photon.PunBehaviour {
     }
 
     //[PunRPC]
-    public void RpcMoveObject(int id, Vector3 newPosition, float newScale, float messageTimestamp)
+    public void RpcMoveObject(int id, Vector3 newPosition, Vector3 newVelocity, Vector3 newAcceleration, Vector3 newTorsion, float newScale, float messageTimestamp)
     {
         if (!isServer)
         {
@@ -212,20 +227,22 @@ public class GameNetwork : Photon.PunBehaviour {
             LocationObject obj = GetLocationObject(id);
             if (obj != null)
             {
-                if (messageTimestamp > obj.lastRemoteTimestamp)
+                //if (messageTimestamp > obj.lastRemoteTimestamp)
+                //{
+                if(obj.lastRemoteTimestamp <= 0.0f)
                 {
-                    if(obj.lastRemoteTimestamp <= 0.0f)
-                    {
-                        obj.lastPosition = newPosition;
-                        obj.lastRemoteTimestamp = messageTimestamp;
-                    }
-                    obj.localVelocity = (newPosition - obj.lastPosition) / Math.Max(0.05f, (messageTimestamp - obj.lastRemoteTimestamp));
-                    obj.position = newPosition + obj.localVelocity * ((Time.time - obj.lastTimestamp) - (messageTimestamp - obj.lastRemoteTimestamp));
-                    obj.scale = newScale;
-                    obj.lastPosition = newPosition;
-                    obj.lastRemoteTimestamp = messageTimestamp;
-                    obj.lastTimestamp = Time.time;
+                    //obj.lastPosition = newPosition;
+                    //obj.lastRemoteTimestamp = messageTimestamp;
                 }
+                obj.position = newPosition;
+                obj.velocity = newVelocity;
+                obj.acceleration = newAcceleration;
+                obj.torsion = newTorsion;
+                obj.scale = newScale;
+                obj.lastPosition = newPosition;
+                obj.lastRemoteTimestamp = messageTimestamp;
+                obj.lastTimestamp = Time.time;
+                //}
             }
         }
         else
@@ -235,22 +252,26 @@ public class GameNetwork : Photon.PunBehaviour {
     }
 
     //[PunRPC]
-    public void RpcUpdatePlayer(int id, float health, float stamina)
+    public void RpcUpdatePlayer(int id, float health, float stamina, float staminaConsumption)
     {
-        if (!isServer)
-        {
+        //Debug.Log("RPC UPDATE PLAYER[" + id + "] health: " + health + " ; stamina: " + stamina);
+        //if (!isServer)
+        //{
             PlayerObject playerObject;
             LocationObject obj = GetLocationObject(id);
             if (obj != null)
             {
+                //Debug.Log("RPC UPDATE PLAYER[" + id + "] found");
                 if (obj.objectType == Location.ObjectType.PLAYER)
                 {
+                    //Debug.Log("RPC UPDATE PLAYER[" + id + "] is PLAYER. changed!");
                     playerObject = (PlayerObject)obj;
                     playerObject.health = health;
                     playerObject.stamina = stamina;
+                    playerObject.staminaConsumption = stamina;
                 }
             }
-        }
+        //}
     }
 
     //[PunRPC]
@@ -281,85 +302,75 @@ public class GameNetwork : Photon.PunBehaviour {
     }
 
     //[PunRPC]
-    public void RpcSetAbility(bool active, int id)
+    public void RpcSetAbility(int id, int value)
     {
-        if(!isServer)
-        {
-            SetAbility(active, id);
-        }
+        SetAbility(id, value);
     }
 
-    public void SetAbility(bool active, int id)
+    public void SetAbility(int id, int value)
     {
-        if (active)
+        string abilityLabel = "";
+        switch (value)
         {
-            switch (id)
-            {
-                case 0:
-                    abilityActiveButton.text.text = "О";
-                    break;
-                case 1:
-                    abilityActiveButton.text.text = "Щ";
-                    break;
-            }
+            case 1:
+                abilityLabel = "Щ";
+                break;
+            case 2:
+                abilityLabel = "К";
+                break;
         }
-        else
+        switch (id)
         {
-            switch (id)
-            {
-                case 0:
-                    abilityPassiveButton.text.text = "У";
-                    break;
-                case 1:
-                    abilityPassiveButton.text.text = "К";
-                    break;
-            }
+            case 0:
+                abilityPassiveButton.text.text = abilityLabel;
+                break;
+            case 1:
+                abilityActiveButton.text.text = abilityLabel;
+                break;
         }
     }
 
     //[PunRPC]
     public void RpcShowNotice(int target, string message, float offset, int color, bool floating)
     {
-        if (!isServer)
-        {
+        //if (!isServer)
+        //{
             ShowNotice(target, message, offset, color, floating);
-        }
+        //}
     }
 
     public void ShowNotice(int target, string message, float offset, int color, bool floating)
     {
         if (floating)
         {
+            //Debug.Log("FLOATING NOTICE[" + target + ":" + playerId + "]");
             float distanceScale = 1.0f;
             FloatingNotifyController floatingNotify = GameObject.Instantiate(floatNotifyPrefab).GetComponent<FloatingNotifyController>();
-            switch (color)
-            {
-                case 0:
-                    floatingNotify.ShowGreen(message);
-                    break;
-                case 1:
-                    floatingNotify.ShowRed(message);
-                    break;
-            }
-            if (target == playerId)
+            floatingNotify.Show(message, color);
+            if (target != playerId)
             {
                 if (location != null)
                 {
                     PlayerObject playerObject = (PlayerObject)location.GetObject(target);
                     if (playerObject != null && playerObject.visualObject != null)
                     {
-                        floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(playerObject.visualObject.transform.position.z, 0.5f) * 10.0f;
-                        floatingNotify.transform.position = playerObject.visualObject.transform.position + Vector3.right * 0.2f + Vector3.forward * -1.0f + Vector3.up * -0.1f * offset * (1.0f + playerObject.visualObject.transform.position.z * 2.0f);
+                        floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(Mathf.Abs(playerObject.visualObject.transform.position.z), 0.5f) * 5.0f;
+                        floatingNotify.transform.position = playerObject.visualObject.transform.position + playerObject.visualObject.transform.right * 3.0f + playerObject.visualObject.transform.forward * 2.0f + Vector3.up * (7.5f - 3.0f * offset);
+                        if(playerId == 1)
+                        {
+                            floatingNotify.transform.Rotate(0.0f, 180.0f, 0.0f);
+                        }
                     }
                 }
             }
-            else if (target != playerId)
+            else if (target == playerId)
             {
                 floatingNotify.transform.position = camera.transform.position + Vector3.right * -0.2f + Vector3.forward * 1.0f + Vector3.up * (-0.95f + 0.5f * offset);
             }
         }
         else
         {
+            //Debug.Log("FIXED NOTICE[" + target + ":" + playerId + "]");
             FixedNotifyController fixedNotify = GameObject.Instantiate(fixedNotifyPrefab).GetComponent<FixedNotifyController>();
             fixedNotify.text.rectTransform.SetParent(gameMatchMaker.canvasPlay.transform);
             if (target == playerId)
@@ -430,10 +441,10 @@ public class GameNetwork : Photon.PunBehaviour {
     //[PunRPC]
     public void RpcFlashObstruction(int id)
     {
-        if(!isServer)
-        {
+        //if(!isServer)
+        //{
             FlashObstruction(id);
-        }
+        //}
     }
 
     public void FlashObstruction(int id)
@@ -445,6 +456,7 @@ public class GameNetwork : Photon.PunBehaviour {
             obstructionObject = (ObstructionObject)locationObject;
             if (obstructionObject.visualObject != null)
             {
+                //Debug.Log("FlashObstruction[" + obstructionObject.id + "]");
                 obstructionObject.visualObject.Flash();
             }
         }
@@ -492,6 +504,7 @@ public class GameNetwork : Photon.PunBehaviour {
         healthBarEnemy = GameObject.Find("HealthValueEnemy").GetComponent<Text>();
         abilityActiveButton = GameObject.Find("AbilityActiveButton").GetComponent<AbilityButtonController>();
         abilityPassiveButton = GameObject.Find("AbilityPassiveButton").GetComponent<AbilityButtonController>();
+        /*
         switchSwipeTypeButton = GameObject.Find("SwitchSwipeType").GetComponent<Button>();
         switchSwipeTypeButton.onClick.AddListener(delegate() {
             swipeController.swipeType++;
@@ -501,6 +514,7 @@ public class GameNetwork : Photon.PunBehaviour {
             }
             switchSwipeTypeButton.GetComponentInChildren<Text>().text = "РЕЖИМ\nСВАЙПА\n#" + swipeController.swipeType;
         });
+        */
         swipeController.OnInvokeAction += OnThrow;
         if (!isServer)
         {
@@ -531,7 +545,7 @@ public class GameNetwork : Photon.PunBehaviour {
         abilityActiveButton.button.onClick.AddListener(delegate() {
             if (abilityActiveButton.Activate(10.0f))
             {
-                OnUseAbility(0);
+                OnUseAbility(1);
                 //SendSimpleMessage(ClientEvent.USE_ABILITY);
             }
         });
@@ -790,7 +804,7 @@ public class GameNetwork : Photon.PunBehaviour {
             lastTouchY = touchY;
             if (throwState == ThrowState.TOUCHED)
             {
-                armedMissile.SetAnchor(new Vector2(lastTouchX, 1.0f - lastTouchY));
+                armedMissile.SetAnchor(new Vector2(lastTouchX, 1.0f - lastTouchY), touchTime);
             }
         }
         else
@@ -801,7 +815,6 @@ public class GameNetwork : Photon.PunBehaviour {
                 armedMissile.ResetAnchor();
             }
         }
-        swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
 #else
         if (Input.GetMouseButtonDown(0))
         {
@@ -840,18 +853,35 @@ public class GameNetwork : Photon.PunBehaviour {
                 //}
             }
         }
-        swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
+        if (throwState == ThrowState.TOUCHED)
+        {
+            armedMissile.SetAnchor(new Vector2(lastTouchX, 1.0f - lastTouchY), touchTime);
+        }
 #endif
+        swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
+        if (throwState == ThrowState.TOUCHED)
+        {
+            touchTime += Time.deltaTime;
+            armedMissile.transform.localRotation = Quaternion.AngleAxis(Mathf.Min(60.0f, transform.localRotation.eulerAngles.x + touchTime * 180.0f), Vector3.right);
+        }
+        else
+        {
+            if (touchTime > 0.0f)
+            {
+                touchTime = 0.0f;
+                armedMissile.Rearm();
+            }
+        }
     }
 
     public void OnThrow(object sender, SwipeEventArgs e)
     {
-        if (isServer)
-        {
-            Throw(0, e.angle, e.torsion, e.speed);
-        }
-        else
-        {
+        Throw(playerId, e.angle, e.torsion, e.speed);
+        //if (isServer)
+        //{
+        //}
+        //else
+        //{
             ThrowMessage throwMessage = new ThrowMessage();
             throwMessage.id = 0;
             throwMessage.angleX = e.angle.x;
@@ -860,7 +890,7 @@ public class GameNetwork : Photon.PunBehaviour {
             throwMessage.speed = e.speed;
             PhotonNetwork.networkingPeer.OpCustom((byte)2, new Dictionary<byte, object> { { 245, throwMessage.Pack() } }, true);
             //SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
-        }
+        //}
         throwState = ThrowState.NONE;
     }
 
@@ -871,6 +901,9 @@ public class GameNetwork : Photon.PunBehaviour {
         PlayerObject playerObject;
         LocationObject playerLocationObject = GetLocationObject(player);
         float staminaConsumption = 0.0f;
+        float trimmedSpeed = Mathf.Min(1.2f, Math.Max(1.0f, speed));
+        float horizontalAngle = Mathf.Min(22.0f, Math.Max(-22.0f, angle.x));
+        float t = 1.0f / trimmedSpeed;
         if (playerLocationObject != null)
         {
             playerObject = (PlayerObject)playerLocationObject;
@@ -882,19 +915,25 @@ public class GameNetwork : Photon.PunBehaviour {
             if (playerObject.stamina >= staminaConsumption)
             {
                 playerObject.stamina -= staminaConsumption;
-                missileController = (Instantiate(missilePrefabs[0])).GetComponent<MissileController>();
+                missileController = (Instantiate(missilePrefabs[myMissileId])).GetComponent<MissileController>();
                 missileController.gameNetwork = this;
                 missileObject = new MissileObject();
-                missileObject.position = new Vector3(playerLocationObject.position.x, 0.2f + angle.y * 0.2f, 0.1f);
-                missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(0.5f, angle.y)) * 0.09f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
-                missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
-                //missileObject.passiveVelocity = new Vector3(playerObject.MoveSpeed(), 0.0f, 0.0f);
-                missileObject.torsion = new Vector3(0.0f, torsion, 0.0f);
+                //missileObject.position = new Vector3(playerLocationObject.position.x, 0.2f + angle.y * 0.2f, 0.1f);
+                //missileObject.direction = (new Vector3(0.0f, Mathf.Min(1.0f, 0.2f + Mathf.Min(0.5f, angle.y)) * 0.09f, Mathf.Min(0.5f, Math.Max(0.2f, speed / 5.0f)))).normalized;
+                //missileObject.direction = Quaternion.Euler(0, Mathf.Min(30.0f, Mathf.Max(-30.0f, angle.x)), 0) * missileObject.direction;
+                //missileObject.torsion = new Vector3(0.0f, torsion, 0.0f);
+
+                missileObject.position = armedMissile.transform.position * 0.01f; //new Vector3(playerLocationObject.position.X + playerLocationObject.velocity.X * (currentTimestamp - playerLocationObject.lastTimestamp + 0.2f), 0.2f + angle.Y * 0.2f, playerLocationObject.position.Z + viewDirection.Z * 0.1f);
+                missileObject.acceleration = new Vector3(0.0f, Location.gravity, 0.0f);
+                missileObject.velocity = new Vector3(0.0f, Math.Min(0.05f, Math.Max(-0.15f, (angle.y - 0.35f) * 2.5f)) - missileObject.acceleration.y / 2, trimmedSpeed + Math.Abs(horizontalAngle) / 30.0f * 0.1f); // !!! not trigonometrical coeficient
+                missileObject.velocity = Quaternion.Euler(0.0f, horizontalAngle + (1.0f + playerObject.position.z / Mathf.Abs(playerObject.position.z)) * 90.0f, 0.0f) * missileObject.velocity; // / 180.0f * (float)Math.PI
+                missileObject.torsion = new Vector3(0.0f, Math.Min(90.0f, Math.Max(-90.0f, torsion)), 0.0f);
+
                 if (isServer)
                 {
-                    if (player == 0)
+                    if (player == playerId)
                     {
-                        armedMissile.Rearm();
+                        //armedMissile.Rearm();
                     }
                     else
                     {
@@ -904,11 +943,22 @@ public class GameNetwork : Photon.PunBehaviour {
                         }
                     }
                 }
-                missileObject.velocity = Mathf.Min(1.2f, Mathf.Max(0.8f, speed)) * 8.0f;
+                //missileObject.velocity = Mathf.Min(1.2f, Mathf.Max(0.8f, speed)) * 8.0f;
                 missileController.obj = missileObject;
                 missileController.torsion = missileObject.torsion.y;
+                missileObject.id *= -1;
+                Debug.Log("ADD LOCAL MISSILE: " + missileObject.id);
                 location.AddObject(missileObject);
-                missileController.transform.position = missileObject.position;
+                missileController.transform.position = missileObject.position * 100.0f;
+                missileController.transform.localScale *= 20.0f;
+
+                DestroyObjectMessage destroyObjectMessage = new DestroyObjectMessage();
+                destroyObjectMessage.id = missileObject.id;
+                destroyObjectMessage.objectId = missileObject.id;
+                destroyObjectMessage.timemark = gameMatchMaker.GetRemoteTimestamp() + t;
+                destroyObjectMessage.eventCode = 3;
+                gameMatchMaker.AddDelayedMessage(destroyObjectMessage);
+
             }
         }
     }
@@ -971,15 +1021,15 @@ public class GameNetwork : Photon.PunBehaviour {
         {
             playerObject.abilityEvade = 0.0f;
             playerObject.abilityStun = 0.0f;
-            SetAbility(false, 0);
-            SetAbility(true, 0);
+            //SetAbility(false, 0);
+            //SetAbility(true, 0);
         }
         else
         {
             playerObject.abilityCrit = 0.0f;
             playerObject.abilityShield = 0.0f;
-            SetAbility(false, 1);
-            SetAbility(true, 1);
+            //SetAbility(false, 1);
+            //SetAbility(true, 1);
         }
         location.AddObject(playerObject);
 
@@ -1014,8 +1064,8 @@ public class GameNetwork : Photon.PunBehaviour {
             playerObject.abilityStun = 0.0f;
             if (!isLocal)
             {
-                RpcSetAbility(false, 0);
-                RpcSetAbility(true, 0);
+                //RpcSetAbility(false, 0);
+                //RpcSetAbility(true, 0);
             }
         }
         else
@@ -1024,8 +1074,8 @@ public class GameNetwork : Photon.PunBehaviour {
             playerObject.abilityShield = 0.0f;
             if (!isLocal)
             {
-                RpcSetAbility(false, 1);
-                RpcSetAbility(true, 1);
+                //RpcSetAbility(false, 1);
+                //RpcSetAbility(true, 1);
             }
         }
         playerController.obj = playerObject;

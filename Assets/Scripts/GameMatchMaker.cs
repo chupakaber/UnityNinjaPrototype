@@ -27,6 +27,11 @@ public class GameMatchMaker : Photon.PunBehaviour
     public Button startLocalButton;
     public Button settingsButton;
     public InputField roomIdField;
+    public Button missileSelectorPrevButton;
+    public Button missileSelectorNextButton;
+    public ArmedMissileController armedMissile;
+    public Button[] VenomButtons;
+    public Button[] AbilityButtons;
     public string storedMatchName = "";
 
     public int joinAttempts = 0;
@@ -70,8 +75,20 @@ public class GameMatchMaker : Photon.PunBehaviour
 
 
     private Dictionary<int, string> langNotices = new Dictionary<int, string>();
+    private LinkedList<BaseObjectMessage> delayedMessages = new LinkedList<BaseObjectMessage>();
     private RoomInfo selectedRoom = null;
     private TypedLobby lobby;
+    private float remoteTimestamp = 0.0f;
+
+    public float GetRemoteTimestamp()
+    {
+        return remoteTimestamp;
+    }
+
+    public void AddDelayedMessage(BaseObjectMessage message)
+    {
+        delayedMessages.AddLast(message);
+    }
 
     public override void OnConnectedToMaster()
     {
@@ -130,6 +147,7 @@ public class GameMatchMaker : Photon.PunBehaviour
         base.OnPhotonCreateRoomFailed(codeAndMsg);
         startButton.interactable = true;
         startLocalButton.interactable = true;
+        Debug.LogError("Create room failed");
     }
 
     public override void OnPhotonJoinRoomFailed(object[] codeAndMsg)
@@ -138,10 +156,13 @@ public class GameMatchMaker : Photon.PunBehaviour
         joinButtonText.text = "Создать бой";
         startButton.interactable = true;
         startLocalButton.interactable = true;
+        Debug.LogError("Join room failed");
     }
 
     void Start()
     {
+        int i;
+
         Application.runInBackground = true;
         //NetManager.singleton.StartMatchMaker();
         canvasConnect.enabled = true;
@@ -226,24 +247,93 @@ public class GameMatchMaker : Photon.PunBehaviour
         });
         //((NetManager)NetManager.singleton).ServerConnect += OnServerConnect;
 
+        missileSelectorPrevButton.onClick.AddListener(delegate() {
+            armedMissile.SetPreviousMissile();
+        });
+        missileSelectorNextButton.onClick.AddListener(delegate () {
+            armedMissile.SetNextMissile();
+        });
+
+        VenomButtons[1].onClick.AddListener(delegate {
+            int j;
+            for(j = 1; j < VenomButtons.Length; j++)
+            {
+                if(j == 1)
+                {
+                    VenomButtons[j].image.color = Color.green;
+                }
+                else
+                {
+                    VenomButtons[j].image.color = Color.white;
+                }
+            }
+        });
+        VenomButtons[2].onClick.AddListener(delegate {
+            int j;
+            for (j = 1; j < VenomButtons.Length; j++)
+            {
+                if (j == 2)
+                {
+                    VenomButtons[j].image.color = Color.green;
+                }
+                else
+                {
+                    VenomButtons[j].image.color = Color.white;
+                }
+            }
+        });
+        VenomButtons[3].onClick.AddListener(delegate {
+            int j;
+            for (j = 1; j < VenomButtons.Length; j++)
+            {
+                if (j == 3)
+                {
+                    VenomButtons[j].image.color = Color.green;
+                }
+                else
+                {
+                    VenomButtons[j].image.color = Color.white;
+                }
+            }
+        });
+        VenomButtons[4].onClick.AddListener(delegate {
+            int j;
+            for (j = 1; j < VenomButtons.Length; j++)
+            {
+                if (j == 4)
+                {
+                    VenomButtons[j].image.color = Color.green;
+                }
+                else
+                {
+                    VenomButtons[j].image.color = Color.white;
+                }
+            }
+        });
 
 
 
         langNotices.Add(0, "");
         langNotices.Add(1, "К");
-        langNotices.Add(2, "Щ");
-        langNotices.Add(3, "ЩИТ");
-        langNotices.Add(4, "УКЛОНЕНИЕ");
-        langNotices.Add(5, "ОГЛУШЕН");
-        langNotices.Add(6, "РУКА");
-        langNotices.Add(7, "НОГА");
-        langNotices.Add(8, "ОГЛУШЕНИЕ");
+        langNotices.Add(2, "ГОЛОВА");
+        langNotices.Add(3, "НОГА");
+        langNotices.Add(4, "РУКА");
+        langNotices.Add(5, "(ЛЕГ.)");
+        langNotices.Add(6, "(СРЕД.)");
+        langNotices.Add(7, "(ТЯЖ.)");
+        langNotices.Add(8, "ЯД");
+        langNotices.Add(9, "ЩИТ");
+        langNotices.Add(10, "КРИТИЧЕСКИЙ УРОН");
+        langNotices.Add(11, "УКЛОНЕНИЕ");
+        langNotices.Add(12, "ОГЛУШЕН");
+        langNotices.Add(13, "ОГЛУШЕНИЕ");
 
 
     }
 
     void OnEvent(byte eventCode, object content, int senderId)
     {
+        int i;
         BaseObjectMessage baseObjectMessage;
         PlayerObject playerObject = null;
         PlayerController playerController = null;
@@ -253,19 +343,22 @@ public class GameMatchMaker : Photon.PunBehaviour
             case 1:
                 baseObjectMessage = new BaseObjectMessage();
                 baseObjectMessage.Unpack((byte[])content);
+                remoteTimestamp = baseObjectMessage.timemark;
                 gameNetwork.ClientInit();
                 gameNetwork.playerId = baseObjectMessage.id;
+                Debug.Log("INITIALIZE PLAYER ID: " + gameNetwork.playerId);
+                /* duplicate for GameNetwork RpcSpawnObject case PLAYER */
                 playerObject = (PlayerObject)gameNetwork.location.GetObject(gameNetwork.playerId);
                 if (playerObject != null)
                 {
-                    camera.transform.position = new Vector3(camera.transform.position.x, camera.transform.position.y, playerObject.position.z * 10.0f);
+                    camera.transform.position = playerObject.position * 100.0f + Vector3.up * 10.0f;
                     if (gameNetwork.playerId == 1)
                     {
                         camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
                     }
                 }
                 playerObject = (PlayerObject)gameNetwork.location.GetObject(gameNetwork.playerId == 1 ? 0 : 1);
-                if (playerObject != null)
+                if (playerObject != null && playerObject.visualObject == null)
                 {
                     playerController = (Instantiate(gameNetwork.bodyPrefabs[0])).GetComponent<PlayerController>();
                     playerController.gameNetwork = gameNetwork;
@@ -274,31 +367,53 @@ public class GameMatchMaker : Photon.PunBehaviour
                     playerController.transform.position = playerObject.position * 10.0f;
                     playerController.transform.localScale *= 10.0f;
                 }
+                /* */
                 canvasPlay.enabled = true;
-                PhotonNetwork.networkingPeer.OpCustom((byte)1, new Dictionary<byte, object> { { 100, "CLIENT_JOINED" } }, true);
+
+                InitializeMessage initializeMessage = new InitializeMessage();
+                initializeMessage.abilityFirstId = 2;
+                initializeMessage.abilitySecondId = 1;
+                gameNetwork.myMissileId = armedMissile.GetCurrentMissile();
+                initializeMessage.missileId = gameNetwork.myMissileId;
+                for (i = 1; i < VenomButtons.Length; i++)
+                {
+                    if (VenomButtons[i].image.color == Color.green)
+                    {
+                        initializeMessage.venomId = i;
+                    }
+                }
+                PhotonNetwork.networkingPeer.OpCustom((byte)1, new Dictionary<byte, object> { { 245, initializeMessage.Pack() } }, true);
+
                 break;
             case 2:
                 SpawnObjectMessage spawnObjectMessage = new SpawnObjectMessage();
                 spawnObjectMessage.Unpack((byte[])content);
-                Debug.Log(Time.fixedTime + " Spawn." + spawnObjectMessage.objectType + " [" + spawnObjectMessage.id + "]");
-                gameNetwork.RpcSpawnObject(spawnObjectMessage.id, spawnObjectMessage.objectType, spawnObjectMessage.newPosition, spawnObjectMessage.newFloat, spawnObjectMessage.visualId);
+                //Debug.Log(Time.fixedTime + " Spawn." + spawnObjectMessage.objectType + " [" + spawnObjectMessage.id + "]");
+                spawnObjectMessage.eventCode = eventCode;
+                delayedMessages.AddLast(spawnObjectMessage);
+                //gameNetwork.RpcSpawnObject(spawnObjectMessage.id, spawnObjectMessage.objectType, spawnObjectMessage.newPosition, spawnObjectMessage.newFloat, spawnObjectMessage.visualId);
                 break;
             case 3:
                 DestroyObjectMessage destroyObjectMessage = new DestroyObjectMessage();
                 destroyObjectMessage.Unpack((byte[])content);
-                Debug.Log(Time.fixedTime + " Destroy [" + destroyObjectMessage.id + "]");
-                gameNetwork.RpcDestroyObject(destroyObjectMessage.id);
+                //Debug.Log(Time.fixedTime + " Destroy [" + destroyObjectMessage.id + "]: " + destroyObjectMessage.objectId);
+                destroyObjectMessage.eventCode = eventCode;
+                delayedMessages.AddLast(destroyObjectMessage);
+                //gameNetwork.RpcDestroyObject(destroyObjectMessage.id);
                 break;
             case 4:
                 MoveObjectMessage moveObjectMessage = new MoveObjectMessage();
                 moveObjectMessage.Unpack((byte[])content);
-                gameNetwork.RpcMoveObject(moveObjectMessage.id, moveObjectMessage.newPosition, moveObjectMessage.newFloat, moveObjectMessage.timestamp);
+                //Debug.Log(Time.fixedTime + " Move [" + moveObjectMessage.id + "]");
+                moveObjectMessage.eventCode = eventCode;
+                delayedMessages.AddLast(moveObjectMessage);
+                //gameNetwork.RpcMoveObject(moveObjectMessage.id, moveObjectMessage.newPosition, moveObjectMessage.newFloat, moveObjectMessage.timestamp);
                 break;
             case 5:
                 UpdatePlayerMessage updatePlayerMessage = new UpdatePlayerMessage();
                 updatePlayerMessage.Unpack((byte[])content);
                 //Debug.Log("Player[" + updatePlayerMessage.id + "] health: " + updatePlayerMessage.newHealth + " ; stamina: " + updatePlayerMessage.newStamina);
-                gameNetwork.RpcUpdatePlayer(updatePlayerMessage.id, updatePlayerMessage.newHealth, updatePlayerMessage.newStamina);
+                gameNetwork.RpcUpdatePlayer(updatePlayerMessage.id, updatePlayerMessage.newHealth, updatePlayerMessage.newStamina, updatePlayerMessage.newStaminaConsumption);
                 break;
             case 6:
                 gameNetwork.RpcRearmMissile();
@@ -316,33 +431,14 @@ public class GameMatchMaker : Photon.PunBehaviour
             case 9:
                 SetAbilityMessage setAbilityMessage = new SetAbilityMessage();
                 setAbilityMessage.Unpack((byte[])content);
-                gameNetwork.RpcSetAbility(setAbilityMessage.active, setAbilityMessage.id);
+                gameNetwork.RpcSetAbility(setAbilityMessage.id, setAbilityMessage.value);
                 break;
             case 10:
                 NoticeMessage noticeMessage = new NoticeMessage();
                 noticeMessage.Unpack((byte[])content);
-                string noticeText = "";
-                if (noticeMessage.color == 1)
-                {
-                    noticeText += "-";
-                }
-                else
-                {
-                    noticeText += "+";
-                }
-                if (noticeMessage.prefixMessage != -1)
-                {
-                    noticeText += " " + langNotices[noticeMessage.prefixMessage];
-                }
-                if (noticeMessage.numericValue != 0)
-                {
-                    noticeText += " " + noticeMessage.numericValue;
-                }
-                if (noticeMessage.suffixMessage != -1)
-                {
-                    noticeText += " " + langNotices[noticeMessage.suffixMessage];
-                }
-                gameNetwork.RpcShowNotice(noticeMessage.id, noticeText, noticeMessage.offset, noticeMessage.color, noticeMessage.floating);
+                //Debug.Log("GET NOTICE MESSAGE. timemark: " + noticeMessage.timemark + " ; numericValue: " + noticeMessage.numericValue);
+                noticeMessage.eventCode = eventCode;
+                delayedMessages.AddLast(noticeMessage);
                 break;
             case 11:
                 baseObjectMessage = new BaseObjectMessage();
@@ -352,9 +448,76 @@ public class GameMatchMaker : Photon.PunBehaviour
             case 12:
                 baseObjectMessage = new BaseObjectMessage();
                 baseObjectMessage.Unpack((byte[])content);
+                //Debug.Log("FLASH OBSTRUCTION[" + baseObjectMessage.id + "]. timemark: " + baseObjectMessage.timemark);
                 gameNetwork.RpcFlashObstruction(baseObjectMessage.id);
                 break;
         }
+    }
+
+    void CheckEvents()
+    {
+        LinkedListNode<BaseObjectMessage> objMessageNode;
+        LinkedListNode<BaseObjectMessage> objMessageNodeNext;
+        BaseObjectMessage baseObjectMessage;
+        PlayerObject playerObject = null;
+        PlayerController playerController = null;
+        objMessageNode = delayedMessages.First;
+        while(objMessageNode != null)
+        {
+            objMessageNodeNext = objMessageNode.Next;
+            if(objMessageNode.Value.timemark <= remoteTimestamp)
+            {
+                switch(objMessageNode.Value.eventCode)
+                {
+                    case 2:
+                        SpawnObjectMessage spawnObjectMessage = (SpawnObjectMessage)objMessageNode.Value;
+                        gameNetwork.RpcSpawnObject(spawnObjectMessage.objectId, spawnObjectMessage.objectType, spawnObjectMessage.newPosition, spawnObjectMessage.newVelocity, spawnObjectMessage.newAcceleration, spawnObjectMessage.newTorsion, spawnObjectMessage.newFloat, spawnObjectMessage.visualId);
+                        break;
+                    case 3:
+                        DestroyObjectMessage destroyObjectMessage = (DestroyObjectMessage)objMessageNode.Value;
+                        gameNetwork.RpcDestroyObject(destroyObjectMessage.objectId);
+                        break;
+                    case 4:
+                        MoveObjectMessage moveObjectMessage = (MoveObjectMessage)objMessageNode.Value;
+                        gameNetwork.RpcMoveObject(moveObjectMessage.objectId, moveObjectMessage.newPosition, moveObjectMessage.newVelocity, moveObjectMessage.newAcceleration, moveObjectMessage.newTorsion, moveObjectMessage.newFloat, moveObjectMessage.timestamp);
+                        break;
+                    case 10:
+                        NoticeMessage noticeMessage = (NoticeMessage)objMessageNode.Value;
+                        //Debug.Log("NOTICE MESSAGE: " + noticeMessage.numericValue + " ; " + noticeMessage.color + " ; " + noticeMessage.floating + " ; " + noticeMessage.offset);
+                        string noticeText = "";
+                        if (noticeMessage.color == 0)
+                        {
+                            noticeText += "+";
+                        }
+                        else
+                        {
+                            noticeText += "-";
+                        }
+                        if (noticeMessage.prefixMessage != -1)
+                        {
+                            noticeText += " " + langNotices[noticeMessage.prefixMessage];
+                        }
+                        if (noticeMessage.numericValue != 0)
+                        {
+                            noticeText += " " + noticeMessage.numericValue;
+                        }
+                        if (noticeMessage.suffixMessage != -1)
+                        {
+                            noticeText += " " + langNotices[noticeMessage.suffixMessage];
+                        }
+                        gameNetwork.RpcShowNotice(noticeMessage.id, noticeText, noticeMessage.offset, noticeMessage.color, noticeMessage.floating);
+                        break;
+                }
+                delayedMessages.Remove(objMessageNode);
+            }
+            objMessageNode = objMessageNodeNext;
+        }
+    }
+
+    void Update()
+    {
+        remoteTimestamp += Time.deltaTime;
+        CheckEvents();
     }
 
     void OnGUI()

@@ -3,13 +3,18 @@ using System.Collections;
 
 public class FloatingNotifyController : MonoBehaviour {
 
+    public MeshRenderer quadMesh;
     public TextMesh textMesh;
+    public TextMesh textMeshBack;
 
     private Color baseColor;
     private float cooldown = 0.0f;
 
 	void Start () {
+        quadMesh.material = Material.Instantiate(quadMesh.sharedMaterial);
+        quadMesh.material.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
         textMesh.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+        textMeshBack.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
         cooldown = 1.0f;
 	}
 	
@@ -20,8 +25,10 @@ public class FloatingNotifyController : MonoBehaviour {
         {
             cooldown -= Time.deltaTime;
             f = cooldown;
+            quadMesh.material.color = new Color(1.0f, 1.0f, 1.0f, f);
             textMesh.color = new Color(baseColor.r, baseColor.g, baseColor.b, f);
-            transform.position += Vector3.up * 0.2f * Time.deltaTime;
+            textMeshBack.color = new Color(baseColor.r * 0.5f, baseColor.g * 0.5f, baseColor.b * 0.5f, f);
+            transform.position += Vector3.up * 4.0f * Time.deltaTime;
             if(cooldown <= 0.0f)
             {
                 Destroy(gameObject);
@@ -33,16 +40,25 @@ public class FloatingNotifyController : MonoBehaviour {
     {
         baseColor = color;
         textMesh.text = message;
+        textMeshBack.text = message;
     }
 
-    public void ShowRed(string message)
+    public void Show(string message, int color)
     {
-        Show(new Color(1.0f, 0.4f, 0.4f, 1.0f), message);
-    }
-
-    public void ShowGreen(string message)
-    {
-        Show(new Color(0.4f, 0.9f, 0.4f, 1.0f), message);
+        Color _color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+        switch(color)
+        {
+            case 0:
+                _color = new Color(0.2f, 0.9f, 0.2f, 1.0f);
+                break;
+            case 1:
+                _color = new Color(1.0f, 0.2f, 0.2f, 1.0f);
+                break;
+            case 2:
+                _color = new Color(0.0f, 0.7f, 0.5f, 1.0f);
+                break;
+        }
+        Show(_color, message);
     }
 
 }

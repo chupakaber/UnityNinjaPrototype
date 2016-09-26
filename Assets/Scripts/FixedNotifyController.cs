@@ -80,11 +80,15 @@ public class FixedNotifyController : MonoBehaviour {
         }
         if (color == 0)
         {
-            text.color = new Color(0.4f, 0.9f, 0.4f, 1.0f);
+            text.color = new Color(0.2f, 0.9f, 0.2f, 1.0f);
         }
         else if(color == 1)
         {
-            text.color = new Color(0.9f, 0.4f, 0.4f, 1.0f);
+            text.color = new Color(0.9f, 0.2f, 0.2f, 1.0f);
+        }
+        else if (color == 2)
+        {
+            text.color = new Color(0.0f, 0.7f, 0.5f, 1.0f);
         }
         text.text = message;
     }

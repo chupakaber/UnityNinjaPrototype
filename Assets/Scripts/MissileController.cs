@@ -10,6 +10,7 @@ public class MissileController : MonoBehaviour {
     public Vector3 velocity = Vector3.zero;
 
     public float torsion = 0.0f;
+    public float passiveRotation = 900.0f;
 
     void Start () {
 
@@ -30,7 +31,7 @@ public class MissileController : MonoBehaviour {
             transform.Rotate(360.0f * Time.deltaTime, 0.0f, 0.0f);
         }
         transform.Rotate(0.0f, 0.0f, -2.0f * torsion * Time.deltaTime);
-        meshObject.transform.Rotate(0.0f, 0.0f, -(900.0f + 50.0f * torsion) * Time.deltaTime);
+        meshObject.transform.Rotate(0.0f, 0.0f, -(passiveRotation + 50.0f * torsion) * Time.deltaTime);
         transform.position += velocity;
 
     }

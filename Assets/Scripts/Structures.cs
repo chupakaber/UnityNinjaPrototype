@@ -138,7 +138,7 @@ public class SwipeController
                     {
                         fullX += v2Delta.x;
                         fullY += v2Delta.y;
-                        if (swipeType == 2)
+                        if (swipeType == 1)
                         {
                             if (i <= pointsList.Count / 3)
                             {
@@ -166,7 +166,7 @@ public class SwipeController
                 prevPointNode = pointNode;
                 pointNode = pointNodeNext;
             }
-            if (swipeType == 2)
+            if (swipeType == 1)
             {
                 if (startPointCount > 0 && endPointCount > 0)
                 {
@@ -203,7 +203,28 @@ public class SwipeController
                 {
                     eventArgs.torsion = -v2Delta.x / Mathf.Abs(v2Delta.x) * 90.0f * (Mathf.Abs(v2Delta.x) * 4.0f - Mathf.Abs(v2Delta.y)) / 2.0f; // 2.0f - Высчитать коефициент в зависимости от времени полета (обратно пропорционально скорости) и угла между 30 и 45 градусами отклонения
                 }
-                eventArgs.angle = new Vector2(Mathf.Atan(v2Delta.x / v2Delta.y) * 180.0f / Mathf.PI, length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.1f);
+                float dxSign = v2Delta.x / Mathf.Abs(v2Delta.x);
+                /*
+                Debug.Log("#1 d.x: " + v2Delta.x + " ; d.y: " + v2Delta.y);
+                Debug.Log("#1 sqrt(d.x): " + (Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f) * dxSign));
+                Debug.Log("#1 sqrt(d.x) / 2: " + (Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f) * dxSign) / 2.0f);
+                Debug.Log("#1 atan(sqrt(d.x) / 2): " + Mathf.Atan(Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f) * dxSign / 2.0f));
+                */
+                //if (Mathf.Abs(v2Delta.x) < 0.01)
+                //{
+                //    eventArgs.angle.x = 0.0f;
+                //}
+                //else
+                //{
+                //    eventArgs.angle.x = Mathf.Atan(Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f /* elliptic distortion */) * dxSign / v2Delta.y) * 180.0f / Mathf.PI;
+                //}
+                eventArgs.angle.x = Mathf.Atan(v2Delta.x / v2Delta.y);
+                if (Mathf.Abs(eventArgs.angle.x) > 0.001f)
+                {
+                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.5f) * dxSign;
+                }
+                eventArgs.angle.x *= 180.0f / Mathf.PI;
+                eventArgs.angle.y = length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.1f;
                 eventArgs.speed = Mathf.Sqrt(0.2f / duration);
                 InvokeAction(eventArgs);
                 touched = false;
@@ -297,6 +318,8 @@ public class Location
         MISSILE = 3
     };
 
+    public static float gravity = -0.098f;
+
     private GameNetwork network;
     private LinkedList<LocationObject> objects = new LinkedList<LocationObject>();
 
@@ -310,7 +333,8 @@ public class Location
         objects.AddLast(obj);
         if (network.isServer && !network.isLocal)
         {
-            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.scale, obj.visualId);
+
+            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.velocity, obj.acceleration, obj.torsion, obj.scale, obj.visualId);
         }
     }
 
@@ -319,7 +343,7 @@ public class Location
         objects.AddLast(obj);
         if (network.isServer && !network.isLocal)
         {
-            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.scale, obj.visualId);
+            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.velocity, obj.acceleration, obj.torsion, obj.scale, obj.visualId);
         }
         else
         {
@@ -331,7 +355,7 @@ public class Location
         objects.AddLast(obj);
         if (network.isServer && !network.isLocal)
         {
-            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.torsion.y, obj.visualId);
+            network.RpcSpawnObject(obj.id, obj.objectType, obj.position, obj.velocity, obj.acceleration, obj.torsion, obj.torsion.y, obj.visualId);
         }
     }
 
@@ -350,6 +374,7 @@ public class Location
         LinkedListNode<LocationObject> objNodeNext;
         LinkedListNode<LocationObject> objNode2;
         LinkedListNode<LocationObject> objNodeNext2;
+        LocationObject obj;
         ObstructionObject obstructionObject;
         PlayerObject playerObject;
         MissileObject missileObject;
@@ -361,13 +386,17 @@ public class Location
             objNodeNext = objNode.Next;
             if (objNode.Value != null)
             {
+                obj = objNode.Value;
+                obj.velocity += obj.acceleration * deltaTime;
+                obj.position += obj.velocity * deltaTime;
                 switch (objNode.Value.objectType)
                 {
                     case ObjectType.PLAYER:
                         playerObject = (PlayerObject)objNode.Value;
-                        playerObject.position += playerObject.localVelocity * deltaTime;
+                        //Debug.Log("[" + playerObject.id + "] position: " + playerObject.position + " ; velocity: " + playerObject.velocity);
                         if (playerObject.visualObject != null)
                         {
+                            /*
                             if (Mathf.Abs(network.camera.transform.position.x - playerObject.position.x * 10.0f) > 30.0f)
                             {
                                 if (network.camera.transform.position.x - playerObject.position.x * 10.0f > 0.0f)
@@ -393,7 +422,9 @@ public class Location
                                 v3Delta = Vector3.right * (playerObject.position.x * 10.0f - playerObject.visualObject.transform.position.x);
                             }
                             playerObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
-                            if(v3Delta.x > 0.0f)
+                            */
+                            playerObject.visualObject.transform.position = playerObject.position * 100.0f;
+                            if (playerObject.velocity.x > 0.0f)
                             {
                                 playerObject.visualObject.Animate(0);
                             }
@@ -404,6 +435,7 @@ public class Location
                         }
                         else
                         {
+                            /*
                             v3Delta = Vector3.right * (playerObject.position.x * 10.0f - network.camera.transform.position.x);
                             if (Mathf.Abs(v3Delta.x) > 10.0f)
                             {
@@ -418,6 +450,8 @@ public class Location
                                 v3Delta = Vector3.right * (playerObject.position.x * 10.0f - network.camera.transform.position.x);
                             }
                             network.camera.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
+                            */
+                            network.camera.transform.position = playerObject.position * 100.0f + Vector3.up * 15.0f;
                         }
                         if (playerObject.id == network.playerId)
                         {
@@ -431,25 +465,26 @@ public class Location
                         break;
                     case ObjectType.OBSTRUCTION:
                         obstructionObject = (ObstructionObject)objNode.Value;
-                        if (Mathf.Abs(network.camera.transform.position.x - obstructionObject.visualObject.transform.position.x) > 20.0f)
+                        if (Mathf.Abs(network.camera.transform.position.x - obstructionObject.visualObject.transform.position.x) > 3.0f * 100.0f)
                         {
                             if (network.camera.transform.position.x - obstructionObject.visualObject.transform.position.x > 0.0f)
                             {
-                                obstructionObject.visualObject.transform.position += Vector3.right * 40.0f;
+                                obstructionObject.visualObject.transform.position += Vector3.right * 6.0f * 100.0f;
                             }
                             else
                             {
-                                obstructionObject.visualObject.transform.position += Vector3.right * -40.0f;
+                                obstructionObject.visualObject.transform.position += Vector3.right * -6.0f * 100.0f;
                             }
                         }
                         break;
                     case ObjectType.MISSILE:
                         missileObject = (MissileObject)objNode.Value;
-                        missileObject.position += missileObject.localVelocity * deltaTime;
+                        //Debug.Log("[" + Time.time + "] position: " + missileObject.position + " ; velocity: " + missileObject.velocity);
                         if (missileObject.visualObject != null)
                         {
-                            v3Delta = missileObject.position * 10.0f - missileObject.visualObject.transform.position;
-                            missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
+                            //v3Delta = missileObject.position * 10.0f - missileObject.visualObject.transform.position;
+                            //missileObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
+                            missileObject.visualObject.transform.position = missileObject.position * 100.0f;
                             //scale = 1.0f - (missileObject.position.y + 1.0f) * 0.3f;
                             //missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
                         }
@@ -606,8 +641,8 @@ public class Location
                         }
                         if (network.updating && !network.isLocal)
                         {
-                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.scale, 0.0f);
-                            network.RpcUpdatePlayer(playerObject.id, playerObject.health, playerObject.stamina);
+                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.velocity, objNode.Value.acceleration, objNode.Value.torsion, objNode.Value.scale, 0.0f);
+                            network.RpcUpdatePlayer(playerObject.id, playerObject.health, playerObject.stamina, playerObject.staminaConsumption);
                         }
                         break;
                     case ObjectType.OBSTRUCTION:
@@ -618,12 +653,12 @@ public class Location
                         missileObject.direction = Quaternion.Euler(missileObject.torsion.x * deltaTime, missileObject.torsion.y * deltaTime, missileObject.torsion.z * deltaTime) * missileObject.direction;
                         missileObject.direction.y += -0.98f * 0.45f * deltaTime;
                         missileObject.direction.Normalize();
-                        missileObject.position.x += missileObject.passiveVelocity.x * deltaTime;
-                        missileObject.position.y += missileObject.passiveVelocity.y * deltaTime;
-                        missileObject.position.z += missileObject.passiveVelocity.z * deltaTime;
-                        missileObject.position.x += missileObject.direction.x * missileObject.velocity * deltaTime;
-                        missileObject.position.y += missileObject.direction.y * missileObject.velocity * deltaTime;
-                        missileObject.position.z += missileObject.direction.z * missileObject.velocity * deltaTime;
+                        missileObject.velocity.x += missileObject.acceleration.x * deltaTime;
+                        missileObject.velocity.y += missileObject.acceleration.y * deltaTime;
+                        missileObject.velocity.z += missileObject.acceleration.z * deltaTime;
+                        missileObject.position.x += missileObject.velocity.x * deltaTime;
+                        missileObject.position.y += missileObject.velocity.y * deltaTime;
+                        missileObject.position.z += missileObject.velocity.z * deltaTime;
                         //Debug.Log("missileObject position: " + missileObject.position);
                         if (missileObject.position.y <= 0.0f)
                         {
@@ -634,7 +669,7 @@ public class Location
                             }
                             RemoveObject(objNode.Value);
                         }
-                        else if (missileObject.position.z > 2.5f && missileObject.position.z - missileObject.direction.z * missileObject.velocity * deltaTime <= 2.5f)
+                        else if (missileObject.position.z > 2.5f && missileObject.position.z - missileObject.direction.z * missileObject.velocity.z * deltaTime <= 2.5f)
                         {
                             objNode2 = objects.First;
                             while (objNode2 != null)
@@ -923,7 +958,7 @@ public class Location
                         }
                         if (network.updating && !network.isLocal)
                         {
-                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.scale, 0.0f);
+                            network.RpcMoveObject(objNode.Value.id, objNode.Value.position, objNode.Value.velocity, objNode.Value.acceleration, objNode.Value.torsion, objNode.Value.scale, 0.0f);
                         }
                         break;
                 }
@@ -1014,9 +1049,11 @@ public class LocationObject
     public Location.ObjectType objectType = Location.ObjectType.NONE;
     public int visualId = -1;
     public Vector3 position = new Vector3(0.0f, 0.0f, 0.0f);
-    public Vector3 localVelocity = new Vector3(0.0f, 0.0f, 0.0f);
-    public Vector3 passiveVelocity = new Vector3(0.0f, 0.0f, 0.0f);
+    public Vector3 velocity = new Vector3(0.0f, 0.0f, 0.0f);
+    public Vector3 acceleration = new Vector3(0.0f, 0.0f, 0.0f);
     public Vector3 torsion = new Vector3(0.0f, 0.0f, 0.0f);
+    //public Vector3 localVelocity = new Vector3(0.0f, 0.0f, 0.0f);
+    //public Vector3 passiveVelocity = new Vector3(0.0f, 0.0f, 0.0f);
     public float scale = 0.0f;
 
     public LocationObject()
@@ -1107,7 +1144,7 @@ public class MissileObject : LocationObject
     }
 
     public Vector3 direction = new Vector3(0.0f, 0.0f, 0.0f);
-    public float velocity = 0.0f;
+    //public float velocity = 0.0f;
     public MissileController visualObject;
 
 }
@@ -1117,21 +1154,24 @@ public class BaseObjectMessage
 
     public int id;
     public float timestamp = 0.0f;
+    public float timemark = 0.0f;
+    public byte eventCode = 0;
 
     public BaseObjectMessage()
     {
 
     }
 
-    public BaseObjectMessage(float currentTimestamp)
+    public BaseObjectMessage(float currentTimestamp, float targetTimemark)
     {
         timestamp = currentTimestamp;
+        timemark = targetTimemark;
     }
 
     public virtual byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 2];
+        byte[] data = new byte[4 * 3];
         PackBase(ref data, ref index);
         return data;
     }
@@ -1146,12 +1186,14 @@ public class BaseObjectMessage
     {
         PutInt(data, id, ref index);
         PutFloat(data, timestamp, ref index);
+        PutFloat(data, timemark, ref index);
     }
 
     public void UnpackBase(ref byte[] data, ref int index)
     {
         id = GetInt(data, ref index);
         timestamp = GetFloat(data, ref index);
+        timemark = GetFloat(data, ref index);
     }
 
     public bool GetBool(byte[] data, ref int index)
@@ -1202,7 +1244,11 @@ public class SpawnObjectMessage : BaseObjectMessage
 {
 
     public Location.ObjectType objectType;
+    public int objectId = -1;
     public Vector3 newPosition;
+    public Vector3 newVelocity;
+    public Vector3 newAcceleration;
+    public Vector3 newTorsion;
     public float newFloat;
     public int visualId;
 
@@ -1210,19 +1256,29 @@ public class SpawnObjectMessage : BaseObjectMessage
     {
     }
 
-    public SpawnObjectMessage(float currentTimestamp) : base(currentTimestamp)
+    public SpawnObjectMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 8];
+        byte[] data = new byte[4 * 19];
         PackBase(ref data, ref index);
+        PutInt(data, objectId, ref index);
         PutInt(data, (int)objectType, ref index);
         PutFloat(data, newPosition.x, ref index);
         PutFloat(data, newPosition.y, ref index);
         PutFloat(data, newPosition.z, ref index);
+        PutFloat(data, newVelocity.x, ref index);
+        PutFloat(data, newVelocity.y, ref index);
+        PutFloat(data, newVelocity.z, ref index);
+        PutFloat(data, newAcceleration.x, ref index);
+        PutFloat(data, newAcceleration.y, ref index);
+        PutFloat(data, newAcceleration.z, ref index);
+        PutFloat(data, newTorsion.x, ref index);
+        PutFloat(data, newTorsion.y, ref index);
+        PutFloat(data, newTorsion.z, ref index);
         PutFloat(data, newFloat, ref index);
         PutInt(data, visualId, ref index);
         return data;
@@ -1232,11 +1288,21 @@ public class SpawnObjectMessage : BaseObjectMessage
     {
         int index = 0;
         UnpackBase(ref data, ref index);
+        objectId = GetInt(data, ref index);
         objectType = (Location.ObjectType)GetInt(data, ref index);
         newPosition = new Vector3();
         newPosition.x = GetFloat(data, ref index);
         newPosition.y = GetFloat(data, ref index);
         newPosition.z = GetFloat(data, ref index);
+        newVelocity.x = GetFloat(data, ref index);
+        newVelocity.y = GetFloat(data, ref index);
+        newVelocity.z = GetFloat(data, ref index);
+        newAcceleration.x = GetFloat(data, ref index);
+        newAcceleration.y = GetFloat(data, ref index);
+        newAcceleration.z = GetFloat(data, ref index);
+        newTorsion.x = GetFloat(data, ref index);
+        newTorsion.y = GetFloat(data, ref index);
+        newTorsion.z = GetFloat(data, ref index);
         newFloat = GetFloat(data, ref index);
         visualId = GetInt(data, ref index);
     }
@@ -1246,19 +1312,22 @@ public class SpawnObjectMessage : BaseObjectMessage
 public class DestroyObjectMessage : BaseObjectMessage
 {
 
+    public int objectId = -1;
+
     public DestroyObjectMessage() : base()
     {
     }
 
-    public DestroyObjectMessage(float currentTimestamp) : base(currentTimestamp)
+    public DestroyObjectMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 2];
+        byte[] data = new byte[4 * 4];
         PackBase(ref data, ref index);
+        PutInt(data, objectId, ref index);
         return data;
     }
 
@@ -1266,6 +1335,7 @@ public class DestroyObjectMessage : BaseObjectMessage
     {
         int index = 0;
         UnpackBase(ref data, ref index);
+        objectId = GetInt(data, ref index);
     }
 
 }
@@ -1273,25 +1343,39 @@ public class DestroyObjectMessage : BaseObjectMessage
 public class MoveObjectMessage : BaseObjectMessage
 {
 
+    public int objectId = -1;
     public Vector3 newPosition;
+    public Vector3 newVelocity;
+    public Vector3 newAcceleration;
+    public Vector3 newTorsion;
     public float newFloat;
 
     public MoveObjectMessage() : base()
     {
     }
 
-    public MoveObjectMessage(float currentTimestamp) : base(currentTimestamp)
+    public MoveObjectMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 6];
+        byte[] data = new byte[4 * 17];
         PackBase(ref data, ref index);
+        PutInt(data, objectId, ref index);
         PutFloat(data, newPosition.x, ref index);
         PutFloat(data, newPosition.y, ref index);
         PutFloat(data, newPosition.z, ref index);
+        PutFloat(data, newVelocity.x, ref index);
+        PutFloat(data, newVelocity.y, ref index);
+        PutFloat(data, newVelocity.z, ref index);
+        PutFloat(data, newAcceleration.x, ref index);
+        PutFloat(data, newAcceleration.y, ref index);
+        PutFloat(data, newAcceleration.z, ref index);
+        PutFloat(data, newTorsion.x, ref index);
+        PutFloat(data, newTorsion.y, ref index);
+        PutFloat(data, newTorsion.z, ref index);
         PutFloat(data, newFloat, ref index);
         return data;
     }
@@ -1300,10 +1384,20 @@ public class MoveObjectMessage : BaseObjectMessage
     {
         int index = 0;
         UnpackBase(ref data, ref index);
+        objectId = GetInt(data, ref index);
         newPosition = new Vector3();
         newPosition.x = GetFloat(data, ref index);
         newPosition.y = GetFloat(data, ref index);
         newPosition.z = GetFloat(data, ref index);
+        newVelocity.x = GetFloat(data, ref index);
+        newVelocity.y = GetFloat(data, ref index);
+        newVelocity.z = GetFloat(data, ref index);
+        newAcceleration.x = GetFloat(data, ref index);
+        newAcceleration.y = GetFloat(data, ref index);
+        newAcceleration.z = GetFloat(data, ref index);
+        newTorsion.x = GetFloat(data, ref index);
+        newTorsion.y = GetFloat(data, ref index);
+        newTorsion.z = GetFloat(data, ref index);
         newFloat = GetFloat(data, ref index);
         index += 4;
     }
@@ -1315,22 +1409,24 @@ public class UpdatePlayerMessage : BaseObjectMessage
 
     public float newHealth;
     public float newStamina;
+    public float newStaminaConsumption;
 
     public UpdatePlayerMessage() : base()
     {
     }
 
-    public UpdatePlayerMessage(float currentTimestamp) : base(currentTimestamp)
+    public UpdatePlayerMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 4];
+        byte[] data = new byte[4 * 6];
         PackBase(ref data, ref index);
         PutFloat(data, newHealth, ref index);
         PutFloat(data, newStamina, ref index);
+        PutFloat(data, newStaminaConsumption, ref index);
         return data;
     }
 
@@ -1340,6 +1436,7 @@ public class UpdatePlayerMessage : BaseObjectMessage
         UnpackBase(ref data, ref index);
         newHealth = GetFloat(data, ref index);
         newStamina = GetFloat(data, ref index);
+        newStaminaConsumption = GetFloat(data, ref index);
     }
 
 }
@@ -1347,22 +1444,22 @@ public class UpdatePlayerMessage : BaseObjectMessage
 public class SetAbilityMessage : BaseObjectMessage
 {
 
-    public bool active;
+    public int value;
 
     public SetAbilityMessage() : base()
     {
     }
 
-    public SetAbilityMessage(float currentTimestamp) : base(currentTimestamp)
+    public SetAbilityMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 2 + 1];
+        byte[] data = new byte[4 * 4];
         PackBase(ref data, ref index);
-        PutBool(data, active, ref index);
+        PutInt(data, value, ref index);
         return data;
     }
 
@@ -1370,7 +1467,7 @@ public class SetAbilityMessage : BaseObjectMessage
     {
         int index = 0;
         UnpackBase(ref data, ref index);
-        active = GetBool(data, ref index);
+        value = GetInt(data, ref index);
     }
 
 }
@@ -1389,14 +1486,14 @@ public class NoticeMessage : BaseObjectMessage
     {
     }
 
-    public NoticeMessage(float currentTimestamp) : base(currentTimestamp)
+    public NoticeMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 7 + 1];
+        byte[] data = new byte[4 * 8 + 1];
         PackBase(ref data, ref index);
         PutInt(data, numericValue, ref index);
         PutInt(data, prefixMessage, ref index);
@@ -1433,14 +1530,14 @@ public class ThrowMessage : BaseObjectMessage
     {
     }
 
-    public ThrowMessage(float currentTimestamp) : base(currentTimestamp)
+    public ThrowMessage(float currentTimestamp) : base(currentTimestamp, 0.0f)
     {
     }
 
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 6];
+        byte[] data = new byte[4 * 7];
         PackBase(ref data, ref index);
         PutFloat(data, angleX, ref index);
         PutFloat(data, angleY, ref index);
@@ -1461,3 +1558,42 @@ public class ThrowMessage : BaseObjectMessage
 
 }
 
+public class InitializeMessage : BaseObjectMessage
+{
+
+    public int abilityFirstId = -1;
+    public int abilitySecondId = -1;
+    public int missileId = -1;
+    public int venomId = -1;
+
+    public InitializeMessage() : base()
+    {
+    }
+
+    public InitializeMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
+    {
+    }
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 7];
+        PackBase(ref data, ref index);
+        PutInt(data, abilityFirstId, ref index);
+        PutInt(data, abilitySecondId, ref index);
+        PutInt(data, missileId, ref index);
+        PutInt(data, venomId, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        UnpackBase(ref data, ref index);
+        abilityFirstId = GetInt(data, ref index);
+        abilitySecondId = GetInt(data, ref index);
+        missileId = GetInt(data, ref index);
+        venomId = GetInt(data, ref index);
+    }
+
+}

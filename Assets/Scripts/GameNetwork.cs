@@ -108,11 +108,11 @@ public class GameNetwork : Photon.PunBehaviour {
                         playerController.obj = playerObject;
                         playerObject.visualObject = playerController;
                         playerController.transform.position = playerObject.position * 100.0f;
-                        playerController.transform.localScale *= 20.0f;
+                        //playerController.transform.localScale *= 20.0f;
                     }
                     if (id == playerId && playerId != -1)
                     {
-                        camera.transform.position = playerObject.position * 100.0f + Vector3.up * 10.0f;
+                        camera.transform.position = playerObject.position * 100.0f + Vector3.up * 15.0f;
                         if (playerId == 1)
                         {
                             camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
@@ -422,19 +422,35 @@ public class GameNetwork : Photon.PunBehaviour {
     //[PunRPC]
     public void RpcFlashPassiveAbility(int id)
     {
-        if (!isServer)
-        {
+        //if (!isServer)
+        //{
             FlashPassiveAbility(id);
-        }
+        //}
     }
 
     public void FlashPassiveAbility(int id)
     {
+        /*
         PlayerObject playerObject = null;
         playerObject = (PlayerObject)location.GetObject(id);
         if (playerObject != null)
         {
             abilityPassiveButton.Activate(5.0f);
+        }
+        */
+        if(
+            abilityPassiveButton.text.text == "К" && id == 2
+            || abilityPassiveButton.text.text == "У" && id == 4
+            )
+        {
+            abilityPassiveButton.Activate(5.0f);
+        }
+        if (
+            abilityActiveButton.text.text == "К" && id == 2
+            || abilityActiveButton.text.text == "У" && id == 4
+            )
+        {
+            abilityActiveButton.Activate(5.0f);
         }
     }
 
@@ -459,6 +475,31 @@ public class GameNetwork : Photon.PunBehaviour {
                 //Debug.Log("FlashObstruction[" + obstructionObject.id + "]");
                 obstructionObject.visualObject.Flash();
             }
+        }
+    }
+
+    public void RpcVisualEffect(int id, int invokerId, int targetId, float duration)
+    {
+        VisualEffect((Location.VisualEffects)id, invokerId, targetId, duration);
+    }
+
+    public void VisualEffect(Location.VisualEffects effect, int invokerId, int targetId, float duration)
+    {
+        PlayerObject playerObject;
+        switch(effect)
+        {
+            case Location.VisualEffects.RAVEN:
+                gameMatchMaker.visualEffectRaven.Activate();
+                playerObject = (PlayerObject) location.GetObject(targetId);
+                if (playerObject.visualObject != null)
+                {
+                    gameMatchMaker.visualEffectRaven.transform.parent = playerObject.visualObject.transform;
+                }
+                else
+                {
+                    gameMatchMaker.visualEffectRaven.transform.parent = camera.transform;
+                }
+                break;
         }
     }
 
@@ -542,6 +583,13 @@ public class GameNetwork : Photon.PunBehaviour {
             OnClientReady();
         }
         //SendSimpleMessage(ClientEvent.CONNECTED);
+        abilityPassiveButton.button.onClick.AddListener(delegate () {
+            if (abilityPassiveButton.Activate(10.0f))
+            {
+                OnUseAbility(0);
+                //SendSimpleMessage(ClientEvent.USE_ABILITY);
+            }
+        });
         abilityActiveButton.button.onClick.AddListener(delegate() {
             if (abilityActiveButton.Activate(10.0f))
             {

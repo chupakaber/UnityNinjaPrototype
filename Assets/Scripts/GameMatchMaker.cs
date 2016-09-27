@@ -32,6 +32,7 @@ public class GameMatchMaker : Photon.PunBehaviour
     public ArmedMissileController armedMissile;
     public Button[] VenomButtons;
     public Button[] AbilityButtons;
+    public RavenController visualEffectRaven;
     public string storedMatchName = "";
 
     public int joinAttempts = 0;
@@ -79,6 +80,8 @@ public class GameMatchMaker : Photon.PunBehaviour
     private RoomInfo selectedRoom = null;
     private TypedLobby lobby;
     private float remoteTimestamp = 0.0f;
+    private int abilityFirst = 1;
+    private int abilitySecond = 2;
 
     public float GetRemoteTimestamp()
     {
@@ -310,6 +313,21 @@ public class GameMatchMaker : Photon.PunBehaviour
                 }
             }
         });
+        AbilityButtons[1].onClick.AddListener(delegate {
+            SelectAbility(1);
+        });
+        AbilityButtons[2].onClick.AddListener(delegate {
+            SelectAbility(2);
+        });
+        AbilityButtons[3].onClick.AddListener(delegate {
+            SelectAbility(3);
+        });
+        AbilityButtons[4].onClick.AddListener(delegate {
+            SelectAbility(4);
+        });
+        AbilityButtons[5].onClick.AddListener(delegate {
+            SelectAbility(5);
+        });
 
 
 
@@ -329,6 +347,18 @@ public class GameMatchMaker : Photon.PunBehaviour
         langNotices.Add(13, "ОГЛУШЕНИЕ");
 
 
+    }
+
+    public void SelectAbility(int id)
+    {
+        int i;
+        if(abilityFirst != id && abilitySecond != id)
+        {
+            AbilityButtons[abilityFirst].image.color = Color.white;
+            abilityFirst = abilitySecond;
+            abilitySecond = id;
+            AbilityButtons[abilitySecond].image.color = Color.green;
+        }
     }
 
     void OnEvent(byte eventCode, object content, int senderId)
@@ -351,7 +381,7 @@ public class GameMatchMaker : Photon.PunBehaviour
                 playerObject = (PlayerObject)gameNetwork.location.GetObject(gameNetwork.playerId);
                 if (playerObject != null)
                 {
-                    camera.transform.position = playerObject.position * 100.0f + Vector3.up * 10.0f;
+                    camera.transform.position = playerObject.position * 100.0f + Vector3.up * 15.0f;
                     if (gameNetwork.playerId == 1)
                     {
                         camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
@@ -364,15 +394,27 @@ public class GameMatchMaker : Photon.PunBehaviour
                     playerController.gameNetwork = gameNetwork;
                     playerController.obj = playerObject;
                     playerObject.visualObject = playerController;
-                    playerController.transform.position = playerObject.position * 10.0f;
-                    playerController.transform.localScale *= 10.0f;
+                    playerController.transform.position = playerObject.position * 100.0f;
+                    //playerController.transform.localScale *= 10.0f;
                 }
                 /* */
                 canvasPlay.enabled = true;
 
                 InitializeMessage initializeMessage = new InitializeMessage();
-                initializeMessage.abilityFirstId = 2;
-                initializeMessage.abilitySecondId = 1;
+                for (i = 1; i < AbilityButtons.Length; i++)
+                {
+                    if (AbilityButtons[i].image.color == Color.green)
+                    {
+                        if (initializeMessage.abilityFirstId <= -1)
+                        {
+                            initializeMessage.abilityFirstId = i;
+                        }
+                        else
+                        {
+                            initializeMessage.abilitySecondId = i;
+                        }
+                    }
+                }
                 gameNetwork.myMissileId = armedMissile.GetCurrentMissile();
                 initializeMessage.missileId = gameNetwork.myMissileId;
                 for (i = 1; i < VenomButtons.Length; i++)
@@ -450,6 +492,12 @@ public class GameMatchMaker : Photon.PunBehaviour
                 baseObjectMessage.Unpack((byte[])content);
                 //Debug.Log("FLASH OBSTRUCTION[" + baseObjectMessage.id + "]. timemark: " + baseObjectMessage.timemark);
                 gameNetwork.RpcFlashObstruction(baseObjectMessage.id);
+                break;
+            case 13:
+                VisualEffectMessage visualEffectMessage = new VisualEffectMessage();
+                visualEffectMessage.Unpack((byte[])content);
+                Debug.Log("VISUAL EFFECT [" + visualEffectMessage.id + "]. targetId: " + visualEffectMessage.targetId);
+                gameNetwork.RpcVisualEffect(visualEffectMessage.id, visualEffectMessage.invokerId, visualEffectMessage.targetId, visualEffectMessage.duration);
                 break;
         }
     }

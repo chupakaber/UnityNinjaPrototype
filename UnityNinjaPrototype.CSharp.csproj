@@ -230,6 +230,7 @@
     <Compile Include="Assets\Scripts\NetManager.cs" />
     <Compile Include="Assets\Scripts\ObstructionController.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
+    <Compile Include="Assets\Scripts\RavenController.cs" />
     <Compile Include="Assets\Scripts\ScreenEffectsController.cs" />
     <Compile Include="Assets\Scripts\Structures.cs" />
     <Compile Include="Assets\Scripts\SwipeTrailController.cs" />

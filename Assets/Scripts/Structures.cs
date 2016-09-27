@@ -318,6 +318,12 @@ public class Location
         MISSILE = 3
     };
 
+    public enum VisualEffects
+    {
+        NONE = 0,
+        RAVEN = 1001
+    };
+
     public static float gravity = -0.098f;
 
     private GameNetwork network;
@@ -1594,6 +1600,43 @@ public class InitializeMessage : BaseObjectMessage
         abilitySecondId = GetInt(data, ref index);
         missileId = GetInt(data, ref index);
         venomId = GetInt(data, ref index);
+    }
+
+}
+
+public class VisualEffectMessage : BaseObjectMessage
+{
+
+    public int invokerId = -1;
+    public int targetId = -1;
+    public float duration = 0.0f;
+
+    public VisualEffectMessage() : base()
+    {
+    }
+
+    public VisualEffectMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
+    {
+    }
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 6];
+        PackBase(ref data, ref index);
+        PutInt(data, invokerId, ref index);
+        PutInt(data, targetId, ref index);
+        PutFloat(data, duration, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        UnpackBase(ref data, ref index);
+        invokerId = GetInt(data, ref index);
+        targetId = GetInt(data, ref index);
+        duration = GetFloat(data, ref index);
     }
 
 }

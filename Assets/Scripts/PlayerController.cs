@@ -7,9 +7,11 @@ public class PlayerController : MonoBehaviour {
     public PlayerObject obj = null;
     public SpriteRenderer spriteRenderer;
     public Animator animator;
+    public SkinnedMeshRenderer meshRenderer;
 
     public Vector3 velocity = Vector3.zero;
 
+    private Color baseColor;
     private int lastAnimId = 0;
     private int animate = 0;
     private float flashCooldown = 0.0f;
@@ -22,6 +24,7 @@ public class PlayerController : MonoBehaviour {
             obj = new PlayerObject();
         }
         obj.visualObject = this;
+        baseColor = meshRenderer.material.color;
         //gameNetwork.location.AddObject(obj);
 
     }
@@ -32,11 +35,13 @@ public class PlayerController : MonoBehaviour {
         if (flashCooldown > 0.0f)
         {
             flashCooldown -= Time.deltaTime;
-            f = 0.6f + 0.4f * Mathf.Abs(flashCooldown * 4.0f - 0.5f);
-            spriteRenderer.color = new Color(1.0f, f, f, 1.0f);
+            f = Mathf.Abs(flashCooldown * 2.0f - 0.5f);
+            //spriteRenderer.color = new Color(1.0f, f, f, 1.0f);
+            meshRenderer.material.color = new Color(baseColor.r + (1.0f - baseColor.r) * f, f, f, 1.0f);
             if (flashCooldown <= 0.0f)
             {
-                spriteRenderer.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                meshRenderer.material.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1.0f);
+                //spriteRenderer.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
                 flashCooldown = 0.0f;
             }
         }
@@ -54,7 +59,7 @@ public class PlayerController : MonoBehaviour {
 
     public void Flash()
     {
-        flashCooldown = 0.25f;
+        flashCooldown = 0.5f;
     }
 
     public void Animate(int id)

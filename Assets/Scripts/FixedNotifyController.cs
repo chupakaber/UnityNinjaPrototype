@@ -56,7 +56,7 @@ public class FixedNotifyController : MonoBehaviour {
                 text.rectTransform.anchorMin = new Vector2(0.0f, 0.0f);
                 text.rectTransform.anchorMax = new Vector2(0.0f, 0.0f);
                 text.rectTransform.pivot = new Vector2(0.0f, 0.0f);
-                text.rectTransform.anchoredPosition = new Vector2(10.0f, 20.0f + ((float)slot) * 22.0f);
+                text.rectTransform.anchoredPosition = new Vector2(10.0f, 20.0f + ((float)slot) * 28.0f);
             }
             else
             {
@@ -71,7 +71,7 @@ public class FixedNotifyController : MonoBehaviour {
                 text.rectTransform.anchorMin = new Vector2(1.0f, 1.0f);
                 text.rectTransform.anchorMax = new Vector2(1.0f, 1.0f);
                 text.rectTransform.pivot = new Vector2(1.0f, 1.0f);
-                text.rectTransform.anchoredPosition = new Vector2(-10.0f, -10.0f + ((float)slot) * -22.0f);
+                text.rectTransform.anchoredPosition = new Vector2(-10.0f, -10.0f + ((float)slot) * -28.0f);
             }
             else
             {
@@ -89,6 +89,10 @@ public class FixedNotifyController : MonoBehaviour {
         else if (color == 2)
         {
             text.color = new Color(0.0f, 0.7f, 0.5f, 1.0f);
+        }
+        else if (color == 3)
+        {
+            text.color = new Color(0.2f, 0.2f, 0.9f, 1.0f);
         }
         text.text = message;
     }

@@ -381,7 +381,7 @@ public class GameMatchMaker : Photon.PunBehaviour
                 playerObject = (PlayerObject)gameNetwork.location.GetObject(gameNetwork.playerId);
                 if (playerObject != null)
                 {
-                    camera.transform.position = playerObject.position * 100.0f + Vector3.up * 15.0f;
+                    camera.transform.position = playerObject.position * 100.0f + Vector3.up * 20.0f;
                     if (gameNetwork.playerId == 1)
                     {
                         camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
@@ -396,6 +396,10 @@ public class GameMatchMaker : Photon.PunBehaviour
                     playerObject.visualObject = playerController;
                     playerController.transform.position = playerObject.position * 100.0f;
                     //playerController.transform.localScale *= 10.0f;
+                    if(playerObject.position.z < 0.0f)
+                    {
+                        playerObject.visualObject.transform.Rotate(0.0f, 180.0f, 0.0f);
+                    }
                 }
                 /* */
                 canvasPlay.enabled = true;
@@ -485,7 +489,9 @@ public class GameMatchMaker : Photon.PunBehaviour
             case 11:
                 baseObjectMessage = new BaseObjectMessage();
                 baseObjectMessage.Unpack((byte[])content);
-                gameNetwork.RpcFlashPassiveAbility(baseObjectMessage.id);
+                Debug.Log("RECEIVE FLASH PASSIVE ABILITY. timemark: " + baseObjectMessage.timemark);
+                baseObjectMessage.eventCode = eventCode;
+                delayedMessages.AddLast(baseObjectMessage);
                 break;
             case 12:
                 baseObjectMessage = new BaseObjectMessage();
@@ -497,7 +503,8 @@ public class GameMatchMaker : Photon.PunBehaviour
                 VisualEffectMessage visualEffectMessage = new VisualEffectMessage();
                 visualEffectMessage.Unpack((byte[])content);
                 Debug.Log("VISUAL EFFECT [" + visualEffectMessage.id + "]. targetId: " + visualEffectMessage.targetId);
-                gameNetwork.RpcVisualEffect(visualEffectMessage.id, visualEffectMessage.invokerId, visualEffectMessage.targetId, visualEffectMessage.duration);
+                visualEffectMessage.eventCode = eventCode;
+                delayedMessages.AddLast(visualEffectMessage);
                 break;
         }
     }
@@ -554,6 +561,14 @@ public class GameMatchMaker : Photon.PunBehaviour
                             noticeText += " " + langNotices[noticeMessage.suffixMessage];
                         }
                         gameNetwork.RpcShowNotice(noticeMessage.id, noticeText, noticeMessage.offset, noticeMessage.color, noticeMessage.floating);
+                        break;
+                    case 11:
+                        Debug.Log("@ INVOKE FLASH PASSIVE ABILITY[" + objMessageNode.Value.id + "]");
+                        gameNetwork.RpcFlashPassiveAbility(objMessageNode.Value.id);
+                        break;
+                    case 13:
+                        VisualEffectMessage visualEffectMessage = (VisualEffectMessage)objMessageNode.Value;
+                        gameNetwork.RpcVisualEffect(visualEffectMessage.id, visualEffectMessage.invokerId, visualEffectMessage.targetId, visualEffectMessage.targetPosition, visualEffectMessage.direction, visualEffectMessage.duration);
                         break;
                 }
                 delayedMessages.Remove(objMessageNode);

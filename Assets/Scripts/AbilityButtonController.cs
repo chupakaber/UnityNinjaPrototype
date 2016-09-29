@@ -9,6 +9,11 @@ public class AbilityButtonController : MonoBehaviour {
     public Image grayOver;
     public Image greenOver;
 
+    public Sprite activeBackground;
+    public Sprite passiveBackground;
+
+    public int abilityId = -1;
+
     private float startCooldown = 0.0f;
     private float cooldown = 0.0f;
 
@@ -55,13 +60,30 @@ public class AbilityButtonController : MonoBehaviour {
 
     public bool Activate(float duration)
     {
-        if (cooldown == 0.0f)
+        return Activate(duration, false);
+    }
+
+    public bool Activate(float duration, bool force)
+    {
+        if ((text.color == Color.black && cooldown == 0.0f) || force)
         {
             startCooldown = duration;
             cooldown = startCooldown;
             return true;
         }
         return false;
+    }
+
+    public void SwitchToActive()
+    {
+        button.image.sprite = activeBackground;
+        text.color = Color.black;
+    }
+
+    public void SwitchToPassive()
+    {
+        button.image.sprite = passiveBackground;
+        text.color = Color.white;
     }
 
 }

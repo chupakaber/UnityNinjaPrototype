@@ -32,6 +32,7 @@ public class GameNetwork : Photon.PunBehaviour {
     public GameObject floatNotifyPrefab;
     public GameObject fixedNotifyPrefab;
     public GameObject swipeTrailPrefab;
+    public GameObject sparkPrefab;
     public GameMatchMaker gameMatchMaker;
     public ScreenEffectsController screenEffects;
     public ArmedMissileController armedMissile;
@@ -109,10 +110,14 @@ public class GameNetwork : Photon.PunBehaviour {
                         playerObject.visualObject = playerController;
                         playerController.transform.position = playerObject.position * 100.0f;
                         //playerController.transform.localScale *= 20.0f;
+                        if (playerObject.position.z < 0.0f)
+                        {
+                            playerObject.visualObject.transform.Rotate(0.0f, 180.0f, 0.0f);
+                        }
                     }
                     if (id == playerId && playerId != -1)
                     {
-                        camera.transform.position = playerObject.position * 100.0f + Vector3.up * 15.0f;
+                        camera.transform.position = playerObject.position * 100.0f + Vector3.up * 20.0f;
                         if (playerId == 1)
                         {
                             camera.transform.eulerAngles = new Vector3(camera.transform.eulerAngles.x, 180.0f, camera.transform.eulerAngles.z);
@@ -132,7 +137,7 @@ public class GameNetwork : Photon.PunBehaviour {
                     obstructionController.obj = obstructionObject;
                     obstructionObject.visualObject = obstructionController;
                     obstructionController.transform.position = obstructionObject.position * 100.0f;
-                    obstructionController.transform.localScale *= 20.0f;
+                    obstructionController.transform.localScale *= 30.0f;
                     location.AddObject(obstructionObject);
                     break;
                 case Location.ObjectType.MISSILE:
@@ -162,7 +167,7 @@ public class GameNetwork : Photon.PunBehaviour {
                         missileController.torsion = newFloat;
                         missileObject.visualObject = missileController;
                         missileController.transform.position = missileObject.position * 100.0f;
-                        missileController.transform.localScale *= 20.0f;
+                        missileController.transform.localScale *= 30.0f;
                         location.AddObject(missileObject);
                     }
                     //if (Mathf.Abs(newPosition.z) < 0.1f)
@@ -268,7 +273,7 @@ public class GameNetwork : Photon.PunBehaviour {
                     playerObject = (PlayerObject)obj;
                     playerObject.health = health;
                     playerObject.stamina = stamina;
-                    playerObject.staminaConsumption = stamina;
+                    playerObject.staminaConsumption = staminaConsumption;
                 }
             }
         //}
@@ -310,6 +315,7 @@ public class GameNetwork : Photon.PunBehaviour {
     public void SetAbility(int id, int value)
     {
         string abilityLabel = "";
+        bool passive = false;
         switch (value)
         {
             case 1:
@@ -317,15 +323,44 @@ public class GameNetwork : Photon.PunBehaviour {
                 break;
             case 2:
                 abilityLabel = "К";
+                passive = true;
+                break;
+            case 3:
+                abilityLabel = "О";
+                break;
+            case 4:
+                abilityLabel = "У";
+                passive = true;
+                break;
+            case 5:
+                abilityLabel = "В";
                 break;
         }
         switch (id)
         {
             case 0:
+                abilityPassiveButton.abilityId = value;
                 abilityPassiveButton.text.text = abilityLabel;
+                if(passive)
+                {
+                    abilityPassiveButton.SwitchToPassive();
+                }
+                else
+                {
+                    abilityPassiveButton.SwitchToActive();
+                }
                 break;
             case 1:
+                abilityActiveButton.abilityId = value;
                 abilityActiveButton.text.text = abilityLabel;
+                if (passive)
+                {
+                    abilityActiveButton.SwitchToPassive();
+                }
+                else
+                {
+                    abilityActiveButton.SwitchToActive();
+                }
                 break;
         }
     }
@@ -341,31 +376,45 @@ public class GameNetwork : Photon.PunBehaviour {
 
     public void ShowNotice(int target, string message, float offset, int color, bool floating)
     {
+        //float distanceScale = 1.0f;
+        FloatingNotifyController floatingNotify;
+        LocationObject locationObject;
         if (floating)
         {
-            //Debug.Log("FLOATING NOTICE[" + target + ":" + playerId + "]");
-            float distanceScale = 1.0f;
-            FloatingNotifyController floatingNotify = GameObject.Instantiate(floatNotifyPrefab).GetComponent<FloatingNotifyController>();
-            floatingNotify.Show(message, color);
-            if (target != playerId)
+            if (location != null)
             {
-                if (location != null)
+                //Debug.Log("FLOATING NOTICE[" + target + ":" + playerId + "]");
+                floatingNotify = GameObject.Instantiate(floatNotifyPrefab).GetComponent<FloatingNotifyController>();
+                floatingNotify.Show(message, color);
+                locationObject = location.GetObject(target);
+                if (locationObject != null)
                 {
-                    PlayerObject playerObject = (PlayerObject)location.GetObject(target);
-                    if (playerObject != null && playerObject.visualObject != null)
+                    locationObject.floatingNotifyOffset += 1.0f;
+                    switch (locationObject.objectType)
                     {
-                        floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(Mathf.Abs(playerObject.visualObject.transform.position.z), 0.5f) * 5.0f;
-                        floatingNotify.transform.position = playerObject.visualObject.transform.position + playerObject.visualObject.transform.right * 3.0f + playerObject.visualObject.transform.forward * 2.0f + Vector3.up * (7.5f - 3.0f * offset);
-                        if(playerId == 1)
-                        {
-                            floatingNotify.transform.Rotate(0.0f, 180.0f, 0.0f);
-                        }
+                        case Location.ObjectType.PLAYER:
+                            PlayerObject playerObject = (PlayerObject)locationObject;
+                            if (playerObject.visualObject != null) // (target != playerId)
+                            {
+                                if (playerId == 1)
+                                {
+                                    floatingNotify.transform.Rotate(0.0f, 180.0f, 0.0f);
+                                }
+                                floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(Mathf.Abs(playerObject.visualObject.transform.position.z), 0.5f) * 8.0f;
+                                floatingNotify.transform.position = playerObject.visualObject.transform.position + floatingNotify.transform.right * 3.0f + floatingNotify.transform.forward * 2.0f + Vector3.up * (7.5f - 4.0f * locationObject.floatingNotifyOffset);
+                            }
+                            else // (target == playerId)
+                            {
+                                floatingNotify.transform.position = camera.transform.position + Vector3.right * -0.2f + Vector3.forward * 1.0f + Vector3.up * (-0.95f + 0.5f * offset);
+                            }
+                            break;
+                        case Location.ObjectType.OBSTRUCTION:
+                            ObstructionObject obstructionObject = (ObstructionObject)locationObject;
+                            floatingNotify.transform.localScale = Vector3.one * Mathf.Pow(Mathf.Abs(obstructionObject.visualObject.transform.position.z), 0.5f) * 8.0f;
+                            floatingNotify.transform.position = obstructionObject.visualObject.transform.position + floatingNotify.transform.right * 3.0f + floatingNotify.transform.forward * 2.0f + Vector3.up * (7.5f - 4.0f * locationObject.floatingNotifyOffset);
+                            break;
                     }
                 }
-            }
-            else if (target == playerId)
-            {
-                floatingNotify.transform.position = camera.transform.position + Vector3.right * -0.2f + Vector3.forward * 1.0f + Vector3.up * (-0.95f + 0.5f * offset);
             }
         }
         else
@@ -430,27 +479,14 @@ public class GameNetwork : Photon.PunBehaviour {
 
     public void FlashPassiveAbility(int id)
     {
-        /*
-        PlayerObject playerObject = null;
-        playerObject = (PlayerObject)location.GetObject(id);
-        if (playerObject != null)
+        Debug.Log("@ FLASH PASSIVE ABILITY[" + id + "]");
+        if (abilityPassiveButton.abilityId == id)
         {
-            abilityPassiveButton.Activate(5.0f);
+            abilityPassiveButton.Activate(6.0f, true);
         }
-        */
-        if(
-            abilityPassiveButton.text.text == "К" && id == 2
-            || abilityPassiveButton.text.text == "У" && id == 4
-            )
+        if (abilityActiveButton.abilityId == id)
         {
-            abilityPassiveButton.Activate(5.0f);
-        }
-        if (
-            abilityActiveButton.text.text == "К" && id == 2
-            || abilityActiveButton.text.text == "У" && id == 4
-            )
-        {
-            abilityActiveButton.Activate(5.0f);
+            abilityActiveButton.Activate(6.0f, true);
         }
     }
 
@@ -478,16 +514,54 @@ public class GameNetwork : Photon.PunBehaviour {
         }
     }
 
-    public void RpcVisualEffect(int id, int invokerId, int targetId, float duration)
+    public void RpcVisualEffect(int id, int invokerId, int targetId, Vector3 targetPosition, Vector3 direction, float duration)
     {
-        VisualEffect((Location.VisualEffects)id, invokerId, targetId, duration);
+        VisualEffect((Location.VisualEffects)id, invokerId, targetId, targetPosition, direction, duration);
     }
 
-    public void VisualEffect(Location.VisualEffects effect, int invokerId, int targetId, float duration)
+    public void VisualEffect(Location.VisualEffects effect, int invokerId, int targetId, Vector3 targetPosition, Vector3 direction, float duration)
     {
+        LocationObject locationObject;
         PlayerObject playerObject;
-        switch(effect)
+        ObstructionObject obstructionObject;
+        switch (effect)
         {
+            case Location.VisualEffects.HIT:
+                locationObject = location.GetObject(targetId);
+                if(locationObject != null)
+                {
+                    switch(locationObject.objectType)
+                    {
+                        case Location.ObjectType.PLAYER:
+                            playerObject = (PlayerObject)locationObject;
+                            if(playerObject.visualObject != null)
+                            {
+                                playerObject.visualObject.Flash();
+                            }
+                            else
+                            {
+                                screenEffects.RedFlash();
+                            }
+                            break;
+                        case Location.ObjectType.OBSTRUCTION:
+                            obstructionObject = (ObstructionObject)locationObject;
+                            if(obstructionObject.visualObject != null)
+                            {
+                                obstructionObject.visualObject.Flash();
+                            }
+                            break;
+                    }
+                }
+                break;
+            case Location.VisualEffects.SPARKS:
+                SparksController spark = ((GameObject)GameObject.Instantiate(sparkPrefab, targetPosition * 100.0f, camera.transform.rotation)).GetComponent<SparksController>();
+                break;
+            case Location.VisualEffects.RED_SCREEN:
+                screenEffects.RedFlash();
+                break;
+            case Location.VisualEffects.GREEN_SCREEN:
+                screenEffects.GreenFlash();
+                break;
             case Location.VisualEffects.RAVEN:
                 gameMatchMaker.visualEffectRaven.Activate();
                 playerObject = (PlayerObject) location.GetObject(targetId);
@@ -837,7 +911,7 @@ public class GameNetwork : Photon.PunBehaviour {
             touch = Input.GetTouch(0);
             touchX = touch.position.x / (float)Screen.width;
             touchY = 1.0f - touch.position.y / (float)Screen.height;
-            position = (camera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, 0.1f)) - camera.transform.position);
+            position = (camera.ScreenToWorldPoint(new Vector3(touch.position.x, touch.position.y, 0.5f)) - camera.transform.position);
             if (throwState != ThrowState.TOUCHED && touchX > 0.25f && touchX < 0.75f && touchY > 0.8f && touchY < 1.0f)
             {
                 throwState = ThrowState.TOUCHED;
@@ -924,12 +998,13 @@ public class GameNetwork : Photon.PunBehaviour {
 
     public void OnThrow(object sender, SwipeEventArgs e)
     {
-        Throw(playerId, e.angle, e.torsion, e.speed);
-        //if (isServer)
-        //{
-        //}
-        //else
-        //{
+        if (Throw(playerId, e.angle, e.torsion, e.speed))
+        {
+            //if (isServer)
+            //{
+            //}
+            //else
+            //{
             ThrowMessage throwMessage = new ThrowMessage();
             throwMessage.id = 0;
             throwMessage.angleX = e.angle.x;
@@ -938,11 +1013,12 @@ public class GameNetwork : Photon.PunBehaviour {
             throwMessage.speed = e.speed;
             PhotonNetwork.networkingPeer.OpCustom((byte)2, new Dictionary<byte, object> { { 245, throwMessage.Pack() } }, true);
             //SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
-        //}
+            //}
+        }
         throwState = ThrowState.NONE;
     }
 
-    public void Throw(int player, Vector2 angle, float torsion, float speed)
+    public bool Throw(int player, Vector2 angle, float torsion, float speed)
     {
         MissileController missileController;
         MissileObject missileObject;
@@ -956,10 +1032,6 @@ public class GameNetwork : Photon.PunBehaviour {
         {
             playerObject = (PlayerObject)playerLocationObject;
             staminaConsumption = playerObject.staminaConsumption;
-            if(playerObject.armInjury > 0.0f)
-            {
-                staminaConsumption *= 1.0f + playerObject.armInjuryEffect;
-            }
             if (playerObject.stamina >= staminaConsumption)
             {
                 playerObject.stamina -= staminaConsumption;
@@ -1007,8 +1079,10 @@ public class GameNetwork : Photon.PunBehaviour {
                 destroyObjectMessage.eventCode = 3;
                 gameMatchMaker.AddDelayedMessage(destroyObjectMessage);
 
+                return true;
             }
         }
+        return false;
     }
 
     public void FlashPlayer(int id)

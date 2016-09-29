@@ -221,7 +221,7 @@ public class SwipeController
                 eventArgs.angle.x = Mathf.Atan(v2Delta.x / v2Delta.y);
                 if (Mathf.Abs(eventArgs.angle.x) > 0.001f)
                 {
-                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.5f) * dxSign;
+                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.0f) * dxSign;
                 }
                 eventArgs.angle.x *= 180.0f / Mathf.PI;
                 eventArgs.angle.y = length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.1f;
@@ -321,6 +321,10 @@ public class Location
     public enum VisualEffects
     {
         NONE = 0,
+        HIT = 1,
+        SPARKS = 2,
+        RED_SCREEN = 3,
+        GREEN_SCREEN = 4,
         RAVEN = 1001
     };
 
@@ -430,13 +434,13 @@ public class Location
                             playerObject.visualObject.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                             */
                             playerObject.visualObject.transform.position = playerObject.position * 100.0f;
-                            if (playerObject.velocity.x > 0.0f)
+                            if ((playerObject.velocity.x > 0.0f && playerObject.position.z < 0.0f) || (playerObject.velocity.x < 0.0f && playerObject.position.z > 0.0f))
                             {
-                                playerObject.visualObject.Animate(0);
+                                playerObject.visualObject.Animate(1);
                             }
                             else
                             {
-                                playerObject.visualObject.Animate(1);
+                                playerObject.visualObject.Animate(0);
                             }
                         }
                         else
@@ -495,6 +499,14 @@ public class Location
                             //missileObject.visualObject.transform.localScale = new Vector3(scale, Mathf.Pow(scale, 1.5f), 1.0f);
                         }
                         break;
+                }
+                if(objNode.Value.floatingNotifyOffset > 0.0f)
+                {
+                    objNode.Value.floatingNotifyOffset -= Time.deltaTime;
+                    if(objNode.Value.floatingNotifyOffset < 0.0f)
+                    {
+                        objNode.Value.floatingNotifyOffset = 0.0f;
+                    }
                 }
             }
             objNode = objNodeNext;
@@ -1062,6 +1074,8 @@ public class LocationObject
     //public Vector3 passiveVelocity = new Vector3(0.0f, 0.0f, 0.0f);
     public float scale = 0.0f;
 
+    public float floatingNotifyOffset = 0.0f;
+
     public LocationObject()
     {
         id = lastObjectId++;
@@ -1609,6 +1623,8 @@ public class VisualEffectMessage : BaseObjectMessage
 
     public int invokerId = -1;
     public int targetId = -1;
+    public Vector3 targetPosition;
+    public Vector3 direction;
     public float duration = 0.0f;
 
     public VisualEffectMessage() : base()
@@ -1622,10 +1638,16 @@ public class VisualEffectMessage : BaseObjectMessage
     public override byte[] Pack()
     {
         int index = 0;
-        byte[] data = new byte[4 * 6];
+        byte[] data = new byte[4 * 12];
         PackBase(ref data, ref index);
         PutInt(data, invokerId, ref index);
         PutInt(data, targetId, ref index);
+        PutFloat(data, targetPosition.x, ref index);
+        PutFloat(data, targetPosition.y, ref index);
+        PutFloat(data, targetPosition.z, ref index);
+        PutFloat(data, direction.x, ref index);
+        PutFloat(data, direction.y, ref index);
+        PutFloat(data, direction.z, ref index);
         PutFloat(data, duration, ref index);
         return data;
     }
@@ -1636,6 +1658,12 @@ public class VisualEffectMessage : BaseObjectMessage
         UnpackBase(ref data, ref index);
         invokerId = GetInt(data, ref index);
         targetId = GetInt(data, ref index);
+        targetPosition.x = GetFloat(data, ref index);
+        targetPosition.y = GetFloat(data, ref index);
+        targetPosition.z = GetFloat(data, ref index);
+        direction.x = GetFloat(data, ref index);
+        direction.y = GetFloat(data, ref index);
+        direction.z = GetFloat(data, ref index);
         duration = GetFloat(data, ref index);
     }
 

@@ -15,7 +15,7 @@ public class FloatingNotifyController : MonoBehaviour {
         quadMesh.material.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
         textMesh.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
         textMeshBack.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
-        cooldown = 1.0f;
+        cooldown = 2.0f;
 	}
 	
 	void Update () {
@@ -24,7 +24,7 @@ public class FloatingNotifyController : MonoBehaviour {
         if(cooldown > 0.0f)
         {
             cooldown -= Time.deltaTime;
-            f = cooldown;
+            f = cooldown / 2.0f;
             quadMesh.material.color = new Color(1.0f, 1.0f, 1.0f, f);
             textMesh.color = new Color(baseColor.r, baseColor.g, baseColor.b, f);
             textMeshBack.color = new Color(baseColor.r * 0.5f, baseColor.g * 0.5f, baseColor.b * 0.5f, f);
@@ -56,6 +56,9 @@ public class FloatingNotifyController : MonoBehaviour {
                 break;
             case 2:
                 _color = new Color(0.0f, 0.7f, 0.5f, 1.0f);
+                break;
+            case 3:
+                _color = new Color(0.2f, 0.2f, 0.9f, 1.0f);
                 break;
         }
         Show(_color, message);

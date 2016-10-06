@@ -221,7 +221,9 @@
     <Compile Include="Assets\PhotonChatApi\ChatUserStatus.cs" />
     <Compile Include="Assets\PhotonChatApi\IChatClientListener.cs" />
     <Compile Include="Assets\Scripts\AbilityButtonController.cs" />
+    <Compile Include="Assets\Scripts\AbilityTargetController.cs" />
     <Compile Include="Assets\Scripts\ArmedMissileController.cs" />
+    <Compile Include="Assets\Scripts\ButtonController.cs" />
     <Compile Include="Assets\Scripts\FixedNotifyController.cs" />
     <Compile Include="Assets\Scripts\FloatingNotifyController.cs" />
     <Compile Include="Assets\Scripts\GameMatchMaker.cs" />

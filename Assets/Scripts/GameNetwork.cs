@@ -39,6 +39,7 @@ public class GameNetwork : Photon.PunBehaviour {
     public SwipeTrailController swipeTrail = null;
     public AbilityButtonController abilityActiveButton;
     public AbilityButtonController abilityPassiveButton;
+    public AbilityTargetController abilityTarget;
     public Button switchSwipeTypeButton;
     public Image staminaBar;
     public Text healthBarSelf;
@@ -298,12 +299,12 @@ public class GameNetwork : Photon.PunBehaviour {
     }
 
     //[PunRPC]
-    public void RpcGameOver(int winner)
+    public void RpcGameOver(int winner, float time, float damage, float wound)
     {
-        if (!isServer)
-        {
-            GameOver(winner);
-        }
+        //if (!isServer)
+        //{
+        GameOver(winner, time, damage, wound);
+        //}
     }
 
     //[PunRPC]
@@ -577,29 +578,50 @@ public class GameNetwork : Photon.PunBehaviour {
         }
     }
 
-    public void GameOver(int winner)
+    public void GameOver(int winner, float time, float damage, float wound)
     {
         location.Cleanup();
         if (isServer)
         {
             if (!isLocal)
             {
-                NetManager.singleton.matchMaker.DestroyMatch(NetManager.singleton.matchInfo.networkId, 0, null);
+                //NetManager.singleton.matchMaker.DestroyMatch(NetManager.singleton.matchInfo.networkId, 0, null);
                 //NetManager.singleton.StopHost();
                 //NetManager.singleton.StopServer();
             }
         }
         else
         {
-            NetManager.singleton.StopClient();
+            //NetManager.singleton.StopClient();
         }
+        gameMatchMaker.LeaveRoom();
         LocationObject.lastObjectId = 0;
         gameMatchMaker.canvasPlay.enabled = false;
-        gameMatchMaker.canvasConnect.enabled = true;
-        if (isLocal)
+        gameMatchMaker.canvasGameover.enabled = true;
+        gameMatchMaker.battleTimeLabel.text = Mathf.Ceil(time) + " сек.";
+        gameMatchMaker.battleDamageLabel.text = "" + Mathf.Ceil(damage);
+        gameMatchMaker.battleDPSLabel.text = "" + Mathf.Ceil(damage / time * 60.0f * 10.0f) / 10.0f;
+        if (wound > 0.0f)
         {
-            Destroy(gameObject);
+            gameMatchMaker.battleWoundLabel.text = Mathf.Ceil(wound / 1000.0f) + " сек.";
         }
+        else
+        {
+            gameMatchMaker.battleWoundLabel.text = "Нет";
+        }
+        if(winner == playerId)
+        {
+            gameMatchMaker.battleTitleLabel.text = "Победа!";
+        }
+        else
+        {
+            gameMatchMaker.battleTitleLabel.text = "Поражение";
+        }
+        //gameMatchMaker.canvasConnect.enabled = true;
+        //if (isLocal)
+        //{
+        Destroy(gameObject);
+        //}
     }
 
     void Start ()
@@ -619,6 +641,7 @@ public class GameNetwork : Photon.PunBehaviour {
         healthBarEnemy = GameObject.Find("HealthValueEnemy").GetComponent<Text>();
         abilityActiveButton = GameObject.Find("AbilityActiveButton").GetComponent<AbilityButtonController>();
         abilityPassiveButton = GameObject.Find("AbilityPassiveButton").GetComponent<AbilityButtonController>();
+        abilityTarget = GameObject.Find("AbilityTarget").GetComponent<AbilityTargetController>();
         /*
         switchSwipeTypeButton = GameObject.Find("SwitchSwipeType").GetComponent<Button>();
         switchSwipeTypeButton.onClick.AddListener(delegate() {
@@ -998,24 +1021,32 @@ public class GameNetwork : Photon.PunBehaviour {
 
     public void OnThrow(object sender, SwipeEventArgs e)
     {
-        if (Throw(playerId, e.angle, e.torsion, e.speed))
+        if (e.throwing)
         {
-            //if (isServer)
-            //{
-            //}
-            //else
-            //{
-            ThrowMessage throwMessage = new ThrowMessage();
-            throwMessage.id = 0;
-            throwMessage.angleX = e.angle.x;
-            throwMessage.angleY = e.angle.y;
-            throwMessage.torsion = e.torsion;
-            throwMessage.speed = e.speed;
-            PhotonNetwork.networkingPeer.OpCustom((byte)2, new Dictionary<byte, object> { { 245, throwMessage.Pack() } }, true);
-            //SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
-            //}
+            Aiming(playerId, e.angle, e.torsion, e.speed);
+            if (Throw(playerId, e.angle, e.torsion, e.speed))
+            {
+                //if (isServer)
+                //{
+                //}
+                //else
+                //{
+                ThrowMessage throwMessage = new ThrowMessage();
+                throwMessage.id = 0;
+                throwMessage.angleX = e.angle.x;
+                throwMessage.angleY = e.angle.y;
+                throwMessage.torsion = e.torsion;
+                throwMessage.speed = e.speed;
+                PhotonNetwork.networkingPeer.OpCustom((byte)2, new Dictionary<byte, object> { { 245, throwMessage.Pack() } }, true);
+                //SendFourFloatMessage(ClientEvent.THROW, e.angle.x, e.angle.y, e.torsion, e.speed);
+                //}
+            }
+            throwState = ThrowState.NONE;
         }
-        throwState = ThrowState.NONE;
+        else
+        {
+            Aiming(playerId, e.angle, e.torsion, e.speed);
+        }
     }
 
     public bool Throw(int player, Vector2 angle, float torsion, float speed)
@@ -1025,8 +1056,8 @@ public class GameNetwork : Photon.PunBehaviour {
         PlayerObject playerObject;
         LocationObject playerLocationObject = GetLocationObject(player);
         float staminaConsumption = 0.0f;
-        float trimmedSpeed = Mathf.Min(1.2f, Math.Max(1.0f, speed));
-        float horizontalAngle = Mathf.Min(22.0f, Math.Max(-22.0f, angle.x));
+        float trimmedSpeed = Mathf.Min(1.2f, Mathf.Max(1.0f, speed));
+        float horizontalAngle = Mathf.Min(22.0f, Mathf.Max(-22.0f, angle.x));
         float t = 1.0f / trimmedSpeed;
         if (playerLocationObject != null)
         {
@@ -1045,9 +1076,9 @@ public class GameNetwork : Photon.PunBehaviour {
 
                 missileObject.position = armedMissile.transform.position * 0.01f; //new Vector3(playerLocationObject.position.X + playerLocationObject.velocity.X * (currentTimestamp - playerLocationObject.lastTimestamp + 0.2f), 0.2f + angle.Y * 0.2f, playerLocationObject.position.Z + viewDirection.Z * 0.1f);
                 missileObject.acceleration = new Vector3(0.0f, Location.gravity, 0.0f);
-                missileObject.velocity = new Vector3(0.0f, Math.Min(0.05f, Math.Max(-0.15f, (angle.y - 0.35f) * 2.5f)) - missileObject.acceleration.y / 2, trimmedSpeed + Math.Abs(horizontalAngle) / 30.0f * 0.1f); // !!! not trigonometrical coeficient
+                missileObject.velocity = new Vector3(0.0f, Mathf.Min(0.044f, Mathf.Max(-0.176f, (angle.y - 0.8f) * 0.22f)) - missileObject.acceleration.y / 2, trimmedSpeed + Mathf.Abs(horizontalAngle) / 30.0f * 0.1f); // !!! not trigonometrical coeficient
                 missileObject.velocity = Quaternion.Euler(0.0f, horizontalAngle + (1.0f + playerObject.position.z / Mathf.Abs(playerObject.position.z)) * 90.0f, 0.0f) * missileObject.velocity; // / 180.0f * (float)Math.PI
-                missileObject.torsion = new Vector3(0.0f, Math.Min(90.0f, Math.Max(-90.0f, torsion)), 0.0f);
+                missileObject.torsion = new Vector3(0.0f, Mathf.Min(90.0f, Mathf.Max(-90.0f, torsion)), 0.0f);
 
                 if (isServer)
                 {
@@ -1078,6 +1109,44 @@ public class GameNetwork : Photon.PunBehaviour {
                 destroyObjectMessage.timemark = gameMatchMaker.GetRemoteTimestamp() + t;
                 destroyObjectMessage.eventCode = 3;
                 gameMatchMaker.AddDelayedMessage(destroyObjectMessage);
+
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public bool Aiming(int player, Vector2 angle, float torsion, float speed)
+    {
+        MissileController missileController;
+        MissileObject missileObject;
+        PlayerObject playerObject;
+        LocationObject playerLocationObject = GetLocationObject(player);
+        Vector3 v3Position;
+        Vector3 v3Acceleration;
+        Vector3 v3Velocity;
+        Vector3 v3Torsion;
+        Vector3 targetPosition;
+        float staminaConsumption = 0.0f;
+        float trimmedSpeed = Mathf.Min(1.2f, Mathf.Max(1.0f, speed));
+        float horizontalAngle = Mathf.Min(22.0f, Mathf.Max(-22.0f, angle.x));
+        float t = 1.0f / trimmedSpeed;
+        if (playerLocationObject != null)
+        {
+            playerObject = (PlayerObject)playerLocationObject;
+            staminaConsumption = playerObject.staminaConsumption;
+            if (playerObject.stamina >= staminaConsumption)
+            {
+
+                v3Position = armedMissile.transform.position * 0.01f;
+                v3Acceleration = new Vector3(0.0f, Location.gravity, 0.0f);
+                v3Velocity = new Vector3(0.0f, Mathf.Min(0.044f, Mathf.Max(-0.176f, (angle.y - 0.8f) * 0.22f)) - v3Acceleration.y / 2, trimmedSpeed + Mathf.Abs(horizontalAngle) / 30.0f * 0.1f); // !!! not trigonometrical coeficient
+                v3Velocity = Quaternion.Euler(0.0f, horizontalAngle + (1.0f + playerObject.position.z / Mathf.Abs(playerObject.position.z)) * 90.0f, 0.0f) * v3Velocity;
+                v3Torsion = new Vector3(0.0f, Mathf.Min(90.0f, Mathf.Max(-90.0f, torsion)), 0.0f);
+
+                targetPosition = v3Position + v3Velocity * t + v3Acceleration * t * t / 2.0f;
+
+                abilityTarget.Set(targetPosition * 100.0f);
 
                 return true;
             }
@@ -1259,6 +1328,10 @@ public class GameNetwork : Photon.PunBehaviour {
 
     public LocationObject GetLocationObject(int id)
     {
+        if (location == null)
+        {
+            return null;
+        }
         return location.GetObject(id);
     }
 

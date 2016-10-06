@@ -27,6 +27,7 @@ public class SwipeEventArgs : EventArgs
     public Vector2 angle;
     public float torsion;
     public float speed;
+    public bool throwing = false;
 }
 
 public class SwipePoint
@@ -85,6 +86,7 @@ public class SwipeController
             LinkedListNode<SwipePoint> prevPointNode = null;
             LinkedListNode<SwipePoint> pointNode = null;
             LinkedListNode<SwipePoint> pointNodeNext = null;
+            SwipeEventArgs eventArgs;
             if (!started && !touched)
             {
                 locked = false;
@@ -190,7 +192,7 @@ public class SwipeController
                 v2Delta.x = fullX;
                 v2Delta.y = fullY;
                 v2Delta.Normalize();
-                SwipeEventArgs eventArgs = new SwipeEventArgs();
+                eventArgs = new SwipeEventArgs();
                 /*
                 eventArgs.angle = new Vector2(Mathf.Atan(beginX / beginY) * 180.0f / Mathf.PI, length / maxLength);
                 eventArgs.torsion = Vector2.Angle(new Vector2(endX, endY), new Vector2(beginX, beginY)) / 30.0f * Mathf.Max(0.0f, Mathf.Min(1.0f, duration / 0.4f));
@@ -224,12 +226,40 @@ public class SwipeController
                     eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.0f) * dxSign;
                 }
                 eventArgs.angle.x *= 180.0f / Mathf.PI;
-                eventArgs.angle.y = length / maxLength * 0.4f + Mathf.Abs(eventArgs.torsion) / 90.0f * 0.1f;
+                eventArgs.angle.y = length / maxLength;
                 eventArgs.speed = Mathf.Sqrt(0.2f / duration);
+                eventArgs.throwing = true;
                 InvokeAction(eventArgs);
                 touched = false;
                 started = true;
                 locked = true;
+            }
+            else if(touched && pointsList.Count > 2 && length > minLength && fullY > 0.0f)
+            {
+                // Угол броска по горизонтали не больше 45 градусов от прямого направления
+                if (Mathf.Abs(fullX) > Mathf.Abs(fullY))
+                {
+                    fullX = fullX / Mathf.Abs(fullX) * Mathf.Abs(fullY);
+                }
+                v2Delta.x = fullX;
+                v2Delta.y = fullY;
+                v2Delta.Normalize();
+                eventArgs = new SwipeEventArgs();
+                if (Mathf.Abs(v2Delta.x) * 4.0f > Mathf.Abs(v2Delta.y))
+                {
+                    eventArgs.torsion = -v2Delta.x / Mathf.Abs(v2Delta.x) * 90.0f * (Mathf.Abs(v2Delta.x) * 4.0f - Mathf.Abs(v2Delta.y)) / 2.0f; // 2.0f - Высчитать коефициент в зависимости от времени полета (обратно пропорционально скорости) и угла между 30 и 45 градусами отклонения
+                }
+                float dxSign = v2Delta.x / Mathf.Abs(v2Delta.x);
+                eventArgs.angle.x = Mathf.Atan(v2Delta.x / v2Delta.y);
+                if (Mathf.Abs(eventArgs.angle.x) > 0.001f)
+                {
+                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.0f) * dxSign;
+                }
+                eventArgs.angle.x *= 180.0f / Mathf.PI;
+                eventArgs.angle.y = length / maxLength;
+                eventArgs.speed = Mathf.Sqrt(0.2f / duration);
+                eventArgs.throwing = false;
+                InvokeAction(eventArgs);
             }
             if ((!touched && started) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point - newPoint).y < 0.0f))
             {
@@ -461,7 +491,7 @@ public class Location
                             }
                             network.camera.transform.position += v3Delta * Mathf.Min(1.0f, deltaTime * 15.0f);
                             */
-                            network.camera.transform.position = playerObject.position * 100.0f + Vector3.up * 15.0f;
+                            network.camera.transform.position = playerObject.position * 100.0f + Vector3.up * 20.0f;
                         }
                         if (playerObject.id == network.playerId)
                         {
@@ -1008,9 +1038,9 @@ public class Location
     {
         if (!network.isLocal)
         {
-            network.RpcGameOver(winner);
+            network.RpcGameOver(winner, 0.0f, 0.0f, 0.0f);
         }
-        network.GameOver(winner);
+        network.GameOver(winner, 0.0f, 0.0f, 0.0f);
         network = null;
     }
 
@@ -1665,6 +1695,61 @@ public class VisualEffectMessage : BaseObjectMessage
         direction.y = GetFloat(data, ref index);
         direction.z = GetFloat(data, ref index);
         duration = GetFloat(data, ref index);
+    }
+
+}
+
+public class GameOverMessage : BaseObjectMessage
+{
+
+    public int winner = -1;
+    public float time = 0.0f;
+    public float damage = 0.0f;
+    public float wound = 0.0f;
+    public int rank = -1;
+    public int rankChange = -1;
+    public int rankPoints = -1;
+    public int rankPointsChange = -1;
+    public int regionUnlocked = -1;
+
+    public GameOverMessage() : base()
+    {
+    }
+
+    public GameOverMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
+    {
+    }
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 12];
+        PackBase(ref data, ref index);
+        PutInt(data, winner, ref index);
+        PutFloat(data, time, ref index);
+        PutFloat(data, damage, ref index);
+        PutFloat(data, wound, ref index);
+        PutInt(data, rank, ref index);
+        PutInt(data, rankChange, ref index);
+        PutInt(data, rankPointsChange, ref index);
+        PutInt(data, rankPointsChange, ref index);
+        PutInt(data, regionUnlocked, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        UnpackBase(ref data, ref index);
+        winner = GetInt(data, ref index);
+        time = GetFloat(data, ref index);
+        damage = GetFloat(data, ref index);
+        wound = GetFloat(data, ref index);
+        rank = GetInt(data, ref index);
+        rankChange = GetInt(data, ref index);
+        rankPoints = GetInt(data, ref index);
+        rankPointsChange = GetInt(data, ref index);
+        regionUnlocked = GetInt(data, ref index);
     }
 
 }

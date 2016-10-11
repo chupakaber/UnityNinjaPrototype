@@ -58,7 +58,7 @@ public class GameNetwork : Photon.PunBehaviour {
     public float lastTouchX = 0.0f;
     public float lastTouchY = 0.0f;
 
-    public int swipeType = 1;
+    //public int swipeType = 3;
     public ThrowState throwState = ThrowState.NONE;
 
     private bool _isServer = false;
@@ -1003,18 +1003,31 @@ public class GameNetwork : Photon.PunBehaviour {
             armedMissile.SetAnchor(new Vector2(lastTouchX, 1.0f - lastTouchY), touchTime);
         }
 #endif
-        swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
-        if (throwState == ThrowState.TOUCHED)
+        LocationObject obj;
+        PlayerObject playerObject;
+        if ((obj = location.GetObject(playerId)) != null)
         {
-            touchTime += Time.deltaTime;
-            armedMissile.transform.localRotation = Quaternion.AngleAxis(Mathf.Min(60.0f, transform.localRotation.eulerAngles.x + touchTime * 180.0f), Vector3.right);
-        }
-        else
-        {
-            if (touchTime > 0.0f)
+            playerObject = (PlayerObject)obj;
+            if (playerObject.stamina <= playerObject.staminaConsumption)
             {
-                touchTime = 0.0f;
                 armedMissile.Rearm();
+            }
+            else
+            {
+                swipeController.AddPoint(new Vector2(lastTouchX, lastTouchY), Time.deltaTime, throwState == ThrowState.TOUCHED);
+                if (throwState == ThrowState.TOUCHED)
+                {
+                    touchTime += Time.deltaTime;
+                    armedMissile.transform.localRotation = Quaternion.AngleAxis(Mathf.Min(60.0f, transform.localRotation.eulerAngles.x + touchTime * 180.0f), Vector3.right);
+                }
+                else
+                {
+                    if (touchTime > 0.0f)
+                    {
+                        touchTime = 0.0f;
+                        armedMissile.Rearm();
+                    }
+                }
             }
         }
     }
@@ -1075,7 +1088,7 @@ public class GameNetwork : Photon.PunBehaviour {
                 //missileObject.torsion = new Vector3(0.0f, torsion, 0.0f);
 
                 missileObject.position = armedMissile.transform.position * 0.01f; //new Vector3(playerLocationObject.position.X + playerLocationObject.velocity.X * (currentTimestamp - playerLocationObject.lastTimestamp + 0.2f), 0.2f + angle.Y * 0.2f, playerLocationObject.position.Z + viewDirection.Z * 0.1f);
-                missileObject.acceleration = new Vector3(0.0f, Location.gravity, 0.0f);
+                missileObject.acceleration = new Vector3(0.0f, (angle.y - 0.5f) * 2.0f * Location.gravity, 0.0f);
                 missileObject.velocity = new Vector3(0.0f, Mathf.Min(0.044f, Mathf.Max(-0.176f, (angle.y - 0.8f) * 0.22f)) - missileObject.acceleration.y / 2, trimmedSpeed + Mathf.Abs(horizontalAngle) / 30.0f * 0.1f); // !!! not trigonometrical coeficient
                 missileObject.velocity = Quaternion.Euler(0.0f, horizontalAngle + (1.0f + playerObject.position.z / Mathf.Abs(playerObject.position.z)) * 90.0f, 0.0f) * missileObject.velocity; // / 180.0f * (float)Math.PI
                 missileObject.torsion = new Vector3(0.0f, Mathf.Min(90.0f, Mathf.Max(-90.0f, torsion)), 0.0f);
@@ -1139,7 +1152,7 @@ public class GameNetwork : Photon.PunBehaviour {
             {
 
                 v3Position = armedMissile.transform.position * 0.01f;
-                v3Acceleration = new Vector3(0.0f, Location.gravity, 0.0f);
+                v3Acceleration = new Vector3(0.0f, (angle.y - 0.5f) * 2.0f * Location.gravity, 0.0f);
                 v3Velocity = new Vector3(0.0f, Mathf.Min(0.044f, Mathf.Max(-0.176f, (angle.y - 0.8f) * 0.22f)) - v3Acceleration.y / 2, trimmedSpeed + Mathf.Abs(horizontalAngle) / 30.0f * 0.1f); // !!! not trigonometrical coeficient
                 v3Velocity = Quaternion.Euler(0.0f, horizontalAngle + (1.0f + playerObject.position.z / Mathf.Abs(playerObject.position.z)) * 90.0f, 0.0f) * v3Velocity;
                 v3Torsion = new Vector3(0.0f, Mathf.Min(90.0f, Mathf.Max(-90.0f, torsion)), 0.0f);

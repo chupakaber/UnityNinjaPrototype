@@ -48,7 +48,7 @@ public class SwipeController
 
     public float minLength = 0.025f;
     public float maxLength = 0.5f;
-    public int swipeType = 1;
+    public int swipeType = 3;
 
     public bool active = true;
     public bool started = false;
@@ -82,6 +82,12 @@ public class SwipeController
             int endPointCount = 0;
             float endPointX = 0.0f;
             float endPointY = 0.0f;
+            float firstHalfLength = 0.0f;
+            float firstHalfDuration = 0.0f;
+            float firstHalfSpeed = 0.0f;
+            float secondHalfLength = 0.0f;
+            float secondHalfDuration = 0.0f;
+            float secondHalfSpeed = 0.0f;
             Vector2 v2Delta = Vector2.zero;
             LinkedListNode<SwipePoint> prevPointNode = null;
             LinkedListNode<SwipePoint> pointNode = null;
@@ -140,7 +146,7 @@ public class SwipeController
                     {
                         fullX += v2Delta.x;
                         fullY += v2Delta.y;
-                        if (swipeType == 1)
+                        if (swipeType == 1 || swipeType == 3)
                         {
                             if (i <= pointsList.Count / 3)
                             {
@@ -153,6 +159,19 @@ public class SwipeController
                                 endPointCount++;
                                 endPointX += pointNode.Value.point.x;
                                 endPointY += pointNode.Value.point.y;
+                            }
+                        }
+                        if (swipeType == 3)
+                        {
+                            if (i < pointsList.Count / 2)
+                            {
+                                firstHalfLength += v2Delta.magnitude;
+                                firstHalfDuration += pointNode.Value.duration;
+                            }
+                            else
+                            {
+                                secondHalfLength += v2Delta.magnitude;
+                                secondHalfDuration += pointNode.Value.duration;
                             }
                         }
                     }
@@ -168,7 +187,20 @@ public class SwipeController
                 prevPointNode = pointNode;
                 pointNode = pointNodeNext;
             }
-            if (swipeType == 1)
+            if(swipeType == 3)
+            {
+                firstHalfSpeed = firstHalfLength / firstHalfDuration;
+                secondHalfSpeed = secondHalfLength / secondHalfDuration;
+                if(firstHalfSpeed <= 0.0f)
+                {
+                    firstHalfSpeed = 0.0001f;
+                }
+                if (secondHalfSpeed <= 0.0f)
+                {
+                    secondHalfSpeed = 0.0001f;
+                }
+            }
+            if (swipeType == 1 || swipeType == 3)
             {
                 if (startPointCount > 0 && endPointCount > 0)
                 {
@@ -181,62 +213,8 @@ public class SwipeController
                     fullY = 0.0f;
                 }
             }
-            //if (started && !locked && pointsList.Count > 10 && length > minLength && endY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (pointsList.Last.Previous.Value.point - newPoint).magnitude / newDuration < length / duration * 0.1f))))
-            if (started && !locked && pointsList.Count > 2 && length > minLength && fullY > 0.0f && (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f)))))
+            if(started && !locked && pointsList.Count > 2 && length > minLength && fullY > 0.0f)
             {
-                // Угол броска по горизонтали не больше 45 градусов от прямого направления
-                if (Mathf.Abs(fullX) > Mathf.Abs(fullY))
-                {
-                    fullX = fullX / Mathf.Abs(fullX) * Mathf.Abs(fullY);
-                }
-                v2Delta.x = fullX;
-                v2Delta.y = fullY;
-                v2Delta.Normalize();
-                eventArgs = new SwipeEventArgs();
-                /*
-                eventArgs.angle = new Vector2(Mathf.Atan(beginX / beginY) * 180.0f / Mathf.PI, length / maxLength);
-                eventArgs.torsion = Vector2.Angle(new Vector2(endX, endY), new Vector2(beginX, beginY)) / 30.0f * Mathf.Max(0.0f, Mathf.Min(1.0f, duration / 0.4f));
-                if (endX < beginX)
-                {
-                    eventArgs.torsion *= -1.0f;
-                }
-                */
-                if (Mathf.Abs(v2Delta.x) * 4.0f > Mathf.Abs(v2Delta.y))
-                {
-                    eventArgs.torsion = -v2Delta.x / Mathf.Abs(v2Delta.x) * 90.0f * (Mathf.Abs(v2Delta.x) * 4.0f - Mathf.Abs(v2Delta.y)) / 2.0f; // 2.0f - Высчитать коефициент в зависимости от времени полета (обратно пропорционально скорости) и угла между 30 и 45 градусами отклонения
-                }
-                float dxSign = v2Delta.x / Mathf.Abs(v2Delta.x);
-                /*
-                Debug.Log("#1 d.x: " + v2Delta.x + " ; d.y: " + v2Delta.y);
-                Debug.Log("#1 sqrt(d.x): " + (Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f) * dxSign));
-                Debug.Log("#1 sqrt(d.x) / 2: " + (Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f) * dxSign) / 2.0f);
-                Debug.Log("#1 atan(sqrt(d.x) / 2): " + Mathf.Atan(Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f) * dxSign / 2.0f));
-                */
-                //if (Mathf.Abs(v2Delta.x) < 0.01)
-                //{
-                //    eventArgs.angle.x = 0.0f;
-                //}
-                //else
-                //{
-                //    eventArgs.angle.x = Mathf.Atan(Mathf.Pow(Mathf.Abs(v2Delta.x), 0.75f /* elliptic distortion */) * dxSign / v2Delta.y) * 180.0f / Mathf.PI;
-                //}
-                eventArgs.angle.x = Mathf.Atan(v2Delta.x / v2Delta.y);
-                if (Mathf.Abs(eventArgs.angle.x) > 0.001f)
-                {
-                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.0f) * dxSign;
-                }
-                eventArgs.angle.x *= 180.0f / Mathf.PI;
-                eventArgs.angle.y = length / maxLength;
-                eventArgs.speed = Mathf.Sqrt(0.2f / duration);
-                eventArgs.throwing = true;
-                InvokeAction(eventArgs);
-                touched = false;
-                started = true;
-                locked = true;
-            }
-            else if(touched && pointsList.Count > 2 && length > minLength && fullY > 0.0f)
-            {
-                // Угол броска по горизонтали не больше 45 градусов от прямого направления
                 if (Mathf.Abs(fullX) > Mathf.Abs(fullY))
                 {
                     fullX = fullX / Mathf.Abs(fullX) * Mathf.Abs(fullY);
@@ -253,13 +231,28 @@ public class SwipeController
                 eventArgs.angle.x = Mathf.Atan(v2Delta.x / v2Delta.y);
                 if (Mathf.Abs(eventArgs.angle.x) > 0.001f)
                 {
-                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 2.0f) * dxSign;
+                    eventArgs.angle.x = Mathf.Pow(Mathf.Abs(v2Delta.x), 1.75f) * dxSign;
                 }
                 eventArgs.angle.x *= 180.0f / Mathf.PI;
                 eventArgs.angle.y = length / maxLength;
+                if(swipeType == 3)
+                {
+                    eventArgs.angle.y = Mathf.Min(1.0f, Mathf.Max(0.0f, (firstHalfSpeed / (firstHalfSpeed + secondHalfSpeed) - 0.5f) * 2.0f + 1.0f));
+                }
                 eventArgs.speed = Mathf.Sqrt(0.2f / duration);
-                eventArgs.throwing = false;
-                InvokeAction(eventArgs);
+                if (!touched || length > maxLength || (pointsList.First.Value.duration < duration / pointsList.Count * 0.75f) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point.y - newPoint.y < 0.0f || (endY < length * 0.1f))))
+                {
+                    eventArgs.throwing = true;
+                    InvokeAction(eventArgs);
+                    touched = false;
+                    started = true;
+                    locked = true;
+                }
+                else if (touched)
+                {
+                    eventArgs.throwing = false;
+                    InvokeAction(eventArgs);
+                }
             }
             if ((!touched && started) || (pointsList.Count > 1 && (pointsList.Last.Previous.Value.point - newPoint).y < 0.0f))
             {
@@ -358,7 +351,7 @@ public class Location
         RAVEN = 1001
     };
 
-    public static float gravity = -0.098f;
+    public static float gravity = -0.25f; //-0.098f;
 
     private GameNetwork network;
     private LinkedList<LocationObject> objects = new LinkedList<LocationObject>();
@@ -1750,6 +1743,37 @@ public class GameOverMessage : BaseObjectMessage
         rankPoints = GetInt(data, ref index);
         rankPointsChange = GetInt(data, ref index);
         regionUnlocked = GetInt(data, ref index);
+    }
+
+}
+
+public class PingMessage : BaseObjectMessage
+{
+
+    public float time = 0.0f;
+
+    public PingMessage() : base()
+    {
+    }
+
+    public PingMessage(float currentTimestamp, float targetTimemark) : base(currentTimestamp, targetTimemark)
+    {
+    }
+
+    public override byte[] Pack()
+    {
+        int index = 0;
+        byte[] data = new byte[4 * 4];
+        PackBase(ref data, ref index);
+        PutFloat(data, time, ref index);
+        return data;
+    }
+
+    public override void Unpack(byte[] data)
+    {
+        int index = 0;
+        UnpackBase(ref data, ref index);
+        time = GetFloat(data, ref index);
     }
 
 }

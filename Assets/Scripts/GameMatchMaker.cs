@@ -149,6 +149,8 @@ public class GameMatchMaker : Photon.PunBehaviour
         {
             joinButtons[i].Hide();
         }
+        joinButtons[3].text.text = "Одиночный бой";
+        joinButtons[3].Show();
     }
 
     public override void OnJoinedRoom()
@@ -400,7 +402,7 @@ public class GameMatchMaker : Photon.PunBehaviour
         int i;
         RoomInfo roomInfo;
         RoomOptions roomOptions;
-        if (index > -1)
+        if (index > -1 && index < 3)
         {
             ButtonController button = joinButtons[index];
             roomInfo = (RoomInfo)button.context;
@@ -418,7 +420,14 @@ public class GameMatchMaker : Photon.PunBehaviour
             roomOptions = new RoomOptions();
             roomOptions.IsOpen = true;
             roomOptions.IsVisible = true;
-            roomOptions.MaxPlayers = 2;
+            if (index < 3)
+            {
+                roomOptions.MaxPlayers = 2;
+            }
+            else
+            {
+                roomOptions.MaxPlayers = 1;
+            }
             if (PhotonNetwork.CreateRoom(roomIdField.text, roomOptions, lobby))
             {
                 Debug.Log("Room creating!");
@@ -600,6 +609,20 @@ public class GameMatchMaker : Photon.PunBehaviour
                 Debug.Log("VISUAL EFFECT [" + visualEffectMessage.id + "]. targetId: " + visualEffectMessage.targetId);
                 visualEffectMessage.eventCode = eventCode;
                 delayedMessages.AddLast(visualEffectMessage);
+                break;
+            case 14:
+                PingMessage pingMessage = new PingMessage();
+                PingMessage newPingMessage;
+                pingMessage.Unpack((byte[])content);
+                if(pingMessage.time == 0.0f)
+                {
+                    newPingMessage = new PingMessage(remoteTimestamp, pingMessage.timemark);
+                    PhotonNetwork.networkingPeer.OpCustom((byte)4, new Dictionary<byte, object> { { 245, newPingMessage.Pack() } }, true);
+                }
+                else
+                {
+                    remoteTimestamp = pingMessage.timemark + pingMessage.time / 2.0f;
+                }
                 break;
         }
     }
